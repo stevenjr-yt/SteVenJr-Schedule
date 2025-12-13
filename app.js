@@ -189,3 +189,29 @@ window.deleteSchedule = async function(id, category) {
         alert("Gagal menghapus");
     }
 }
+
+// ==========================================
+// BAGIAN 3: FITUR TAMBAHAN (JAM & TANGGAL)
+// ==========================================
+
+function updateClock() {
+    const now = new Date();
+    const clockEl = document.getElementById('digital-clock');
+    const dateEl = document.getElementById('current-date');
+    
+    // Update Jam
+    if(clockEl) {
+        // Format jam 24 jam (HH:MM:SS)
+        clockEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+    }
+
+    // Update Tanggal
+    if(dateEl) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        dateEl.innerText = now.toLocaleDateString('id-ID', options);
+    }
+}
+
+// Jalankan jam setiap 1 detik
+setInterval(updateClock, 1000);
+updateClock(); // Jalankan langsung saat load
