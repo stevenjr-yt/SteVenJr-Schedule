@@ -10,12 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Poppins', sans-serif; background-color: #f3f4f6; }
-        /* Animasi Tab */
         .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Style Scrollbar Tipis */
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -124,7 +121,7 @@
                             </div>
                             <div>
                                 <label class="text-xs font-bold text-gray-500 uppercase">Waktu</label>
-                                <input type="text" id="waktu" placeholder="07:30-10:00" class="w-full p-3 bg-gray-50 border-none rounded-lg">
+                                <input type="text" id="waktu" placeholder="07:30-10:00" class="w-full p-3 bg-gray-50 border-none rounded-lg" required>
                             </div>
                         </div>
                         
@@ -192,9 +189,12 @@
         </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script src="app.js"></script>
     <script>
-        // Logic Tampilan Form
+        // Logic Tampilan Form (Original dari lu)
         function toggleFormFields() {
             const kategori = document.getElementById('kategori').value;
             const lectureFields = document.querySelectorAll('.field-lecture');
@@ -205,16 +205,11 @@
 
         // Logic Pindah Tab Database
         window.switchTab = (targetId, btn) => {
-            // Sembunyikan semua konten tab
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            // Tampilkan konten yang dipilih
             document.getElementById(targetId).classList.add('active');
-
-            // Reset style tombol tab
             document.querySelectorAll('.tab-btn').forEach(b => {
                 b.className = "tab-btn px-4 py-2 text-sm font-bold text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition whitespace-nowrap";
             });
-            // Set style tombol aktif
             btn.className = "tab-btn active px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition whitespace-nowrap";
         }
     </script>
