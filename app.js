@@ -215,3 +215,104 @@ function updateClock() {
 // Jalankan jam setiap 1 detik
 setInterval(updateClock, 1000);
 updateClock(); // Jalankan langsung saat load
+
+
+// ==========================================
+// BAGIAN 4: WIDGET AGENDA HARI INI (DASHBOARD)
+// ==========================================
+
+async function loadTodaySchedule() {
+    const container = document.getElementById('today-schedule-container');
+    if (!container) return; // Stop kalau bukan di halaman dashboard
+
+    // 1. Cek Hari & Tanggal Sekarang
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const now = new Date();
+    const hariIni = days[now.getDay()]; // Contoh: "Sabtu"
+    
+    // Format tanggal untuk cek jadwal personal (YYYY-MM-DD)
+    // Note: Kita sesuaikan dengan format input type="date" HTML
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const tanggalIni = `${year}-${month}-${day}`;
+
+    container.innerHTML = '<p class="text-center text-gray-400 text-sm italic">Sedang mengecek jadwal...</p>';
+
+    try {
+        // 2. Ambil Data Kuliah (Daily) & Personal SEKALIGUS
+        const [resDaily, resPersonal] = await Promise.all([
+            fetch('/api/schedule?category=daily'),
+            fetch('/api/schedule?category=personal')
+        ]);
+
+        const dailyAll = await resDaily.json();
+        const personalAll = await resPersonal.json();
+
+        // 3. Filter: Ambil yang Harinya COCOK saja
+        // - Jadwal Kuliah dicek berdasarkan "Hari" (Senin, Selasa...)
+        const todayKuliah = dailyAll.filter(item => item.hari === hariIni);
+        
+        // - Jadwal Personal dicek berdasarkan "Tanggal" (2025-12-14)
+        const todayPersonal = personalAll.filter(item => item.tanggal === tanggalIni);
+
+        // 4. Render ke Layar
+        let htmlContent = '';
+
+        // A. Kalau KOSONG dua-duanya
+        if (todayKuliah.length === 0 && todayPersonal.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-mug-hot text-3xl text-gray-300 mb-2"></i>
+                    <p class="text-gray-500 font-medium">Tidak ada jadwal hari ini.</p>
+                    <p class="text-xs text-gray-400">Selamat beristirahat, Bro!</p>
+                </div>
+            `;
+            return;
+        }
+
+        // B. Kalau Ada KULIAH
+        todayKuliah.forEach(item => {
+            htmlContent += `
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-r-lg shadow-sm text-left mb-2 transition hover:translate-x-1">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-blue-900 text-sm">${item.matkul}</h3>
+                        <span class="text-[10px] font-bold bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">
+                            ${item.waktu}
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-600 mt-1 flex items-center gap-2">
+                        <span class="flex items-center gap-1"><i class="fas fa-door-open"></i> ${item.ruangan || '?'}</span>
+                        <span class="flex items-center gap-1"><i class="fas fa-chalkboard-teacher"></i> ${item.dosen || '-'}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        // C. Kalau Ada PERSONAL
+        todayPersonal.forEach(item => {
+            htmlContent += `
+                <div class="bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg shadow-sm text-left mb-2 transition hover:translate-x-1">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-green-900 text-sm">${item.matkul || item.nama_kegiatan}</h3>
+                        <span class="text-[10px] font-bold bg-green-200 text-green-800 px-2 py-0.5 rounded-full">
+                            ${item.waktu}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1 italic">
+                        <i class="fas fa-sticky-note mr-1"></i> ${item.keterangan || 'Kegiatan Pribadi'}
+                    </p>
+                </div>
+            `;
+        });
+
+        container.innerHTML = htmlContent;
+
+    } catch (error) {
+        console.error("Gagal load widget:", error);
+        container.innerHTML = '<p class="text-red-400 text-xs text-center">Gagal memuat widget.</p>';
+    }
+}
+
+// Panggil fungsi ini agar jalan otomatis saat website dibuka
+loadTodaySchedule();
