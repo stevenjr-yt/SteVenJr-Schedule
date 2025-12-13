@@ -1,11 +1,30 @@
-// Konfigurasi State
+// ==========================================
+// 1. CONFIG FIREBASE (WAJIB ISI!)
+// ==========================================
+const firebaseConfig = {
+    apiKey: "API_KEY_LU_DISINI",
+    authDomain: "PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "PROJECT_ID",
+    storageBucket: "PROJECT_ID.appspot.com",
+    messagingSenderId: "SENDER_ID",
+    appId: "APP_ID"
+};
+
+// Init Firebase (Cek biar gak double init)
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+// State
 let adminPassword = null; 
 
 // ==========================================
-// 0. HELPER PENTING (JANGAN DIHAPUS)
+// 2. HELPER FUNCTIONS (JANTUNGNYA)
 // ==========================================
 
-// Fungsi: Ubah "08:00-10:00" jadi angka menit (480 - 600) biar bisa dihitung
+// Parse Jam (ex: "13:00" -> 780 menit)
 function parseTime(timeStr) {
     if (!timeStr || !timeStr.includes('-')) return { start: 0, end: 0 };
     const [start, end] = timeStr.split('-').map(t => t.trim());
@@ -14,52 +33,54 @@ function parseTime(timeStr) {
     return { start: sH * 60 + sM, end: eH * 60 + eM };
 }
 
-// FUNGSI SAKTI: Ini yang bikin data PASTI MUNCUL di Admin & Beranda
-// Dia nyari judul dari berbagai kemungkinan nama field di database
+// JUDUL AMAN (Biar Admin gak kosong kalau nama field beda)
 function getSafeTitle(item) {
     return item.matkul || item.nama_kegiatan || item.nama || item.kegiatan || "Tanpa Judul";
 }
 
-// Cek Bentrok (Logic Server/Database)
+// Cek Bentrok (Server Side Logic)
 async function checkConflictServer(kategori, hari, waktu, tanggal) {
     try {
-        const response = await fetch(`/api/schedule?category=${kategori}`);
-        const existingData = await response.json();
-        const newTime = parseTime(waktu);
+        const snap = await db.ref('jadwal').orderByChild('kategori').equalTo(kategori).once('value');
+        const data = snap.val();
+        if(!data) return null;
 
-        return existingData.find(item => {
+        const newTime = parseTime(waktu);
+        
+        // Convert object ke array
+        const list = Object.keys(data).map(key => data[key]);
+
+        return list.find(item => {
             let isSameDay = (kategori === 'daily') ? (item.hari === hari) : (item.tanggal === tanggal);
             if (!isSameDay) return false;
 
             const existTime = parseTime(item.waktu);
-            // Rumus Tabrakan Waktu
             return (newTime.start < existTime.end && newTime.end > existTime.start);
         });
     } catch (e) {
-        console.error("Gagal cek conflict server:", e);
+        console.error("Gagal cek conflict:", e);
         return null; 
     }
 }
 
 // ==========================================
-// BAGIAN 1: LOGIC BERANDA (USER VIEW)
+// 3. LOGIC BERANDA (USER VIEW) - ADA KOPI NYA ☕
 // ==========================================
 
-// Load Data Tabel
-window.loadScheduleData = async function(category) {
+// Load Data Tabel Utama
+window.loadScheduleData = function(category) {
     const tableBody = document.getElementById('schedule-table-body');
     const titleElement = document.getElementById('page-category-badge');
     
-    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Mengambil data...</td></tr>';
+    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Loading...</td></tr>';
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
-    try {
-        const response = await fetch(`/api/schedule?category=${category}`);
-        const data = await response.json();
+    // Tarik Data dari Firebase
+    db.ref('jadwal').orderByChild('kategori').equalTo(category).once('value', (snapshot) => {
+        const dataRaw = snapshot.val();
+        const data = dataRaw ? Object.keys(dataRaw).map(key => ({ id: key, ...dataRaw[key] })) : [];
         renderTable(data, category);
-    } catch (error) {
-        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500">Gagal memuat data.</td></tr>';
-    }
+    });
 }
 
 function renderTable(data, category) {
@@ -67,10 +88,21 @@ function renderTable(data, category) {
     if (!tableBody) return;
     tableBody.innerHTML = ''; 
 
+    // --- LOGIKA KOPI (JIKA DATA KOSONG) ---
     if (!data || data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-400">Belum ada jadwal.</td></tr>';
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-12">
+                    <div class="flex flex-col items-center justify-center text-gray-400">
+                        <i class="fas fa-mug-hot text-6xl mb-4 text-gray-300 animate-pulse"></i>
+                        <p class="font-bold text-lg text-gray-500">Santai Dulu, Ngopi Bro...</p>
+                        <p class="text-sm mt-1 text-gray-400">Gak ada jadwal di kategori ini.</p>
+                    </div>
+                </td>
+            </tr>`;
         return;
     }
+    // --------------------------------------
 
     // Sorting Data
     if (category === 'uts' || category === 'personal') {
@@ -82,11 +114,8 @@ function renderTable(data, category) {
 
     data.forEach(item => {
         const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
-        
-        // PENTING: Pake getSafeTitle biar judulnya gak kosong
         const judul = getSafeTitle(item);
         
-        // Tambahkan atribut data-hari dan data-waktu ke baris TR untuk fitur Cek Bentrok
         const row = `
             <tr class="hover:bg-gray-50 border-b last:border-0 transition schedule-row" 
                 data-hari="${item.hari || item.tanggal}" 
@@ -116,21 +145,14 @@ function renderTable(data, category) {
     });
 }
 
-// === LOGIKA CEK BENTROK (UI BERANDA) YANG LU MINTA ===
-// Hijau kalau aman, Merah kalau bentrok
+// Cek Bentrok UI (Tombol Kuning di Beranda)
 window.checkConflictsUI = function() {
     const rows = document.querySelectorAll('.schedule-row');
     const alertBox = document.getElementById('conflict-alert');
     let conflictFound = false;
 
-    // 1. Reset Tampilan Dulu
     rows.forEach(r => r.classList.remove('bg-red-50', 'border-l-4', 'border-red-500'));
-    if(alertBox) {
-        alertBox.classList.add('hidden');
-        alertBox.className = 'hidden mt-4 px-4 py-3 rounded relative text-center font-bold border'; // Reset class dasar
-    }
 
-    // 2. Loop Cek Tabrakan (Baris vs Baris)
     for (let i = 0; i < rows.length; i++) {
         const rowA = rows[i];
         const hariA = rowA.dataset.hari;
@@ -141,132 +163,110 @@ window.checkConflictsUI = function() {
             const hariB = rowB.dataset.hari;
             const timeB = parseTime(rowB.dataset.waktu);
 
-            // Cek jika Hari/Tanggal SAMA
-            if (hariA === hariB) {
-                // Cek jika Jam BENTROK
-                if (timeA.start < timeB.end && timeA.end > timeB.start) {
-                    // Tandai Merah di Tabel
-                    rowA.classList.add('bg-red-50', 'border-l-4', 'border-red-500');
-                    rowB.classList.add('bg-red-50', 'border-l-4', 'border-red-500');
-                    conflictFound = true;
-                }
+            if (hariA === hariB && timeA.start < timeB.end && timeA.end > timeB.start) {
+                rowA.classList.add('bg-red-50', 'border-l-4', 'border-red-500');
+                rowB.classList.add('bg-red-50', 'border-l-4', 'border-red-500');
+                conflictFound = true;
             }
         }
     }
 
-    // 3. TAMPILKAN HASIL (MERAH / HIJAU)
     if (alertBox) {
         alertBox.classList.remove('hidden');
         if (conflictFound) {
-            // KONDISI MERAH (BENTROK)
-            alertBox.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
-            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Ditemukan Jadwal Bentrok! (Cek baris berwarna merah)';
+            alertBox.className = "mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center font-bold";
+            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> ADA JADWAL BENTROK! (Cek warna merah)';
         } else {
-            // KONDISI HIJAU (AMAN)
-            alertBox.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
-            alertBox.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Aman! Tidak ada jadwal yang bentrok.';
-            
-            // Opsional: Hilang sendiri setelah 3 detik biar rapi
-            setTimeout(() => { alertBox.classList.add('hidden'); }, 4000);
+            alertBox.className = "mt-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center font-bold";
+            alertBox.innerHTML = '<i class="fas fa-check-circle mr-2"></i> AMAN! Tidak ada jadwal bentrok.';
+            setTimeout(() => { alertBox.classList.add('hidden'); }, 3000);
         }
     }
 }
 
+// ==========================================
+// 4. LOGIC ADMIN (PANEL PENGELOLA)
+// ==========================================
 
-// Toggle Tombol UTS di Beranda
-function checkUtsVisibility() {
-    const btnUts = document.getElementById('btn-menu-uts');
-    if(btnUts) {
-        const isUtsOn = localStorage.getItem('mode_uts') === 'true';
-        if(isUtsOn) {
-            btnUts.classList.remove('hidden');
-            btnUts.classList.add('flex');
-        } else {
-            btnUts.classList.add('hidden');
-            btnUts.classList.remove('flex');
+// Login & Auth Check
+document.addEventListener('DOMContentLoaded', () => {
+    // Cek Session
+    if(localStorage.getItem('isAdmin') === 'true') {
+        const loginForm = document.getElementById('login-form');
+        const adminPanel = document.getElementById('admin-panel');
+        if(loginForm && adminPanel) {
+            loginForm.style.display = 'none';
+            adminPanel.style.display = 'block';
+            loadAdminData('daily'); // Load default tab
         }
     }
-}
-checkUtsVisibility();
+    checkUtsVisibility(); // Cek toggle buat index
+});
 
-
-// ==========================================
-// BAGIAN 2: LOGIC ADMIN (PANEL)
-// ==========================================
-
-// Login
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
-    loginBtn.addEventListener('click', async () => {
+    loginBtn.addEventListener('click', () => {
         const passInput = document.getElementById('password').value;
-        const errorMsg = document.getElementById('login-error');
-        try {
-            const res = await fetch('/api/schedule?category=daily', { method: 'GET' });
-            if(res.ok && passInput) {
-                 adminPassword = passInput; 
-                 document.getElementById('login-form').style.display = 'none';
-                 document.getElementById('admin-panel').style.display = 'block';
-                 loadAdminData('daily'); 
-            } else {
-                errorMsg.innerText = "Password Wajib Diisi / Koneksi Gagal";
-                errorMsg.style.display = 'block';
-            }
-        } catch (err) {
-            errorMsg.innerText = "Error Koneksi";
+        // Password sederhana (Ganti sesuai keinginan)
+        if(passInput === "admin123") {
+             localStorage.setItem('isAdmin', 'true');
+             location.reload(); 
+        } else {
+            const errorMsg = document.getElementById('login-error');
+            errorMsg.innerText = "Password Salah!";
             errorMsg.style.display = 'block';
         }
     });
 }
 
-// Logout
 const logoutBtn = document.getElementById('btn-logout');
 if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-        if(confirm("Keluar dari Admin?")) {
-            adminPassword = null;
-            document.getElementById('admin-panel').style.display = 'none';
-            document.getElementById('login-form').style.display = 'flex';
-            document.getElementById('password').value = ''; 
+        if(confirm("Logout Admin?")) {
+            localStorage.removeItem('isAdmin');
+            location.reload();
         }
     });
 }
 
-// Toggle UTS
-const toggleUts = document.getElementById('toggle-uts');
-const statusText = document.getElementById('uts-status-text');
-if (toggleUts) {
-    const savedState = localStorage.getItem('mode_uts') === 'true';
-    toggleUts.checked = savedState;
-    if(statusText) statusText.innerText = savedState ? "ON" : "OFF";
-
-    toggleUts.addEventListener('change', (e) => {
-        const isOn = e.target.checked;
-        localStorage.setItem('mode_uts', isOn);
-        if(statusText) statusText.innerText = isOn ? "ON" : "OFF";
+// --- FIX UTAMA: LOGIC PINDAH TAB & LOAD DATA ---
+// Ini yang bikin admin lu kosong kemarin, fungsinya ga manggil data.
+window.switchTab = function(targetId, btn) {
+    // 1. UI Changes (Sesuai HTML lu)
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = "tab-btn px-4 py-2 text-sm font-bold text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition whitespace-nowrap";
     });
+    btn.className = "tab-btn active px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition whitespace-nowrap";
+
+    // 2. DATA FETCHING (Ini yang kurang!)
+    // targetId = "list-daily" -> category = "daily"
+    // targetId = "list-uts" -> category = "uts"
+    const category = targetId.replace('list-', ''); 
+    loadAdminData(category);
 }
 
-// LOAD ADMIN DATA (INILAH PERBAIKAN UTAMA BIAR BISA HAPUS)
-async function loadAdminData(category) {
+// Load Data Admin (Dengan Delete Button)
+function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`);
     if(!container) return;
     
     container.innerHTML = '<div class="text-center p-4 text-gray-400">Loading...</div>';
     
-    try {
-        const res = await fetch(`/api/schedule?category=${category}`);
-        const data = await res.json();
+    db.ref('jadwal').orderByChild('kategori').equalTo(category).once('value', (snapshot) => {
         container.innerHTML = ''; 
+        const dataRaw = snapshot.val();
 
-        if(!data || data.length === 0) {
+        if(!dataRaw) {
             container.innerHTML = '<div class="text-center p-4 text-gray-400 italic">Data Kosong</div>';
             return;
         }
 
-        data.forEach(item => {
-            // KUNCI PERBAIKAN: Gunakan getSafeTitle()
-            // Ini akan memaksa data "Personal" tampil meski nama kolomnya beda
-            const judul = getSafeTitle(item);
+        Object.keys(dataRaw).forEach(key => {
+            const item = dataRaw[key];
+            const judul = getSafeTitle(item); // Pake safe title biar Personal muncul
             const subInfo = item.hari || item.tanggal;
             
             container.innerHTML += `
@@ -277,164 +277,162 @@ async function loadAdminData(category) {
                             ${subInfo} • ${item.waktu}
                         </div>
                     </div>
-                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="ml-2 text-red-500 hover:text-red-700 font-bold px-2 py-1 rounded bg-white border border-red-100 hover:bg-red-50 transition text-sm">
+                    <button onclick="deleteSchedule('${key}', '${category}')" class="ml-2 text-red-500 hover:text-red-700 font-bold px-2 py-1 rounded bg-white border border-red-100 hover:bg-red-50 transition text-sm">
                         HAPUS
                     </button>
                 </div>`;
         });
-    } catch (e) {
-        container.innerHTML = '<div class="text-red-500 text-sm p-4">Error loading list.</div>';
-    }
+    });
 }
 
-// Tambah Jadwal (Dengan Cek Bentrok)
+// Hapus Jadwal
+window.deleteSchedule = function(key, category) {
+    if(!confirm("Yakin hapus?")) return;
+    db.ref('jadwal/' + key).remove()
+        .then(() => loadAdminData(category)) // Refresh list
+        .catch(err => alert("Gagal hapus: " + err.message));
+}
+
+// Submit Form Tambah
 const addForm = document.getElementById('add-schedule-form');
 if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        const btnSubmit = addForm.querySelector('button[type="submit"]');
-        const oldText = btnSubmit.innerText;
-        btnSubmit.innerText = "Menyimpan...";
-        btnSubmit.disabled = true;
+        const btn = addForm.querySelector('button[type="submit"]');
+        const oldText = btn.innerText;
+        btn.innerText = "Cek Bentrok..."; btn.disabled = true;
 
         const kategori = document.getElementById('kategori').value;
         const hari = document.getElementById('hari').value;
         const waktu = document.getElementById('waktu').value;
         const tanggal = document.getElementById('tanggal').value;
 
-        // Cek Bentrok di Server dulu sebelum simpan
-        const conflictData = await checkConflictServer(kategori, hari, waktu, tanggal);
-        if (conflictData) {
-            alert(`GAGAL: BENTROK!\nJadwal yang nabrak: ${getSafeTitle(conflictData)}\nJam: ${conflictData.waktu}`);
-            btnSubmit.innerText = oldText;
-            btnSubmit.disabled = false;
+        // Cek Bentrok Server
+        const conflict = await checkConflictServer(kategori, hari, waktu, tanggal);
+        if(conflict) {
+            alert(`GAGAL: Bentrok dengan "${getSafeTitle(conflict)}" jam ${conflict.waktu}`);
+            btn.innerText = oldText; btn.disabled = false;
             return;
         }
 
-        const rawData = {
+        // Simpan Data
+        const newData = {
             kategori: kategori,
-            matkul: document.getElementById('matkul').value, 
-            hari: hari,
-            waktu: waktu,
+            matkul: document.getElementById('matkul').value,
+            hari: hari, waktu: waktu, tanggal: tanggal,
             ruangan: document.getElementById('ruangan').value,
             kode: document.getElementById('kode').value,
             dosen: document.getElementById('dosen').value,
             kelas: document.getElementById('kelas').value,
             tipe: document.getElementById('tipe').value,
-            tanggal: tanggal,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
         };
 
-        try {
-            const res = await fetch('/api/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-                body: JSON.stringify(rawData)
-            });
-
-            if (res.ok) {
-                alert("Sukses Tersimpan!");
-                addForm.reset();
-                // Refresh list admin
-                loadAdminData(kategori);
-            } else {
-                alert("Gagal (Cek Password/Koneksi)");
-            }
-        } catch (err) { 
-            alert("Error Sistem.");
-        } finally {
-            btnSubmit.innerText = oldText;
-            btnSubmit.disabled = false;
-        }
+        db.ref('jadwal').push(newData).then(() => {
+            alert("Berhasil!");
+            addForm.reset();
+            // Kembalikan form ke default state
+            document.getElementById('kategori').value = kategori;
+            loadAdminData(kategori);
+            btn.innerText = oldText; btn.disabled = false;
+        });
     });
 }
 
-// Hapus Jadwal
-window.deleteSchedule = async function(id, category) {
-    if(!confirm("Yakin hapus data ini?")) return;
-    try {
-        await fetch(`/api/schedule?id=${id}&category=${category}`, {
-            method: 'DELETE', headers: { 'x-admin-password': adminPassword }
+// Toggle UTS (Disimpan di Firebase biar sinkron Admin <-> Index)
+const toggleUts = document.getElementById('toggle-uts');
+const statusText = document.getElementById('uts-status-text');
+
+if (toggleUts) {
+    // Listen perubahan dari database
+    db.ref('settings/mode_uts').on('value', (snap) => {
+        const isOn = snap.val();
+        toggleUts.checked = isOn;
+        if(statusText) statusText.innerText = isOn ? "ON" : "OFF";
+        // Simpan juga ke localstorage buat backup
+        localStorage.setItem('mode_uts', isOn);
+    });
+
+    toggleUts.addEventListener('change', (e) => {
+        db.ref('settings/mode_uts').set(e.target.checked);
+    });
+}
+
+// Logic Tampilan Tombol UTS di Index (Baca dari Firebase)
+function checkUtsVisibility() {
+    const btnUts = document.getElementById('btn-menu-uts');
+    if(btnUts) {
+        db.ref('settings/mode_uts').on('value', (snap) => {
+            const isOn = snap.val();
+            if(isOn) {
+                btnUts.classList.remove('hidden');
+                btnUts.classList.add('flex');
+            } else {
+                btnUts.classList.add('hidden');
+                btnUts.classList.remove('flex');
+            }
         });
-        loadAdminData(category); // Refresh list biar langsung hilang
-    } catch(e) {
-        alert("Gagal menghapus.");
     }
 }
 
 // ==========================================
-// BAGIAN 3: WIDGET DASHBOARD
+// 5. WIDGET DASHBOARD (JAM & HARI INI)
 // ==========================================
-
 function updateClock() {
     const now = new Date();
-    const clockEl = document.getElementById('digital-clock');
-    const dateEl = document.getElementById('current-date');
-    if(clockEl) clockEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false });
-    if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('digital-clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+    document.getElementById('current-date').innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
-setInterval(updateClock, 1000);
-updateClock();
+if(document.getElementById('digital-clock')) setInterval(updateClock, 1000);
 
+// Widget Jadwal Hari Ini (Juga pake logic Kopi kalau kosong)
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const now = new Date();
-    const hariIni = days[now.getDay()]; 
-    // Format YYYY-MM-DD local timezone
+    const hariIni = days[now.getDay()];
     const offset = now.getTimezoneOffset() * 60000;
     const tglIni = new Date(now.getTime() - offset).toISOString().split('T')[0];
 
-    container.innerHTML = '<p class="text-center italic text-gray-400 text-xs">...</p>';
+    // Ambil semua data
+    const snap = await db.ref('jadwal').once('value');
+    const dataRaw = snap.val();
+    
+    if(!dataRaw) {
+        renderEmptyWidget(container);
+        return;
+    }
 
-    try {
-        const [resDaily, resUts, resPersonal] = await Promise.all([
-            fetch('/api/schedule?category=daily'),
-            fetch('/api/schedule?category=uts'), 
-            fetch('/api/schedule?category=personal')
-        ]);
-        
-        const daily = await resDaily.json();
-        const uts = await resUts.json();
-        const personal = await resPersonal.json();
+    const allData = Object.values(dataRaw);
+    const todayUts = allData.filter(i => i.kategori === 'uts' && i.tanggal === tglIni);
+    const todayDaily = allData.filter(i => i.kategori === 'daily' && i.hari === hariIni);
+    const todayPersonal = allData.filter(i => i.kategori === 'personal' && i.tanggal === tglIni);
 
-        const todayUts = uts.filter(u => u.tanggal === tglIni);
-        const todayDaily = daily.filter(d => d.hari === hariIni);
-        const todayPersonal = personal.filter(p => p.tanggal === tglIni);
+    let html = '';
+    let adaJadwal = false;
 
-        let html = '';
-        let adaJadwal = false;
+    if (todayUts.length > 0) {
+        adaJadwal = true;
+        html += `<div class="text-xs font-bold text-red-500 mb-1 uppercase">Ujian</div>`;
+        todayUts.forEach(item => html += renderWidgetRow(item, 'red'));
+    }
+    if (todayDaily.length > 0) {
+        adaJadwal = true;
+        html += `<div class="mt-2 text-xs font-bold text-blue-500 mb-1 uppercase">Kuliah</div>`;
+        todayDaily.forEach(item => html += renderWidgetRow(item, 'blue'));
+    }
+    if (todayPersonal.length > 0) {
+        adaJadwal = true;
+        html += `<div class="mt-2 text-xs font-bold text-green-500 mb-1 uppercase">Personal</div>`;
+        todayPersonal.forEach(item => html += renderWidgetRow(item, 'green'));
+    }
 
-        if (todayUts.length > 0) {
-            adaJadwal = true;
-            html += `<div class="text-xs font-bold text-red-500 mb-1 uppercase">Ujian (UTS)</div>`;
-            todayUts.forEach(item => {
-                html += renderWidgetRow(item, 'red');
-            });
-        }
-
-        if (todayDaily.length > 0) {
-            adaJadwal = true;
-            if(todayUts.length > 0) html += `<div class="mt-2 text-xs font-bold text-blue-500 mb-1 uppercase">Kuliah</div>`;
-            todayDaily.forEach(item => {
-                html += renderWidgetRow(item, 'blue');
-            });
-        }
-
-        if (todayPersonal.length > 0) {
-            adaJadwal = true;
-            html += `<div class="mt-2 text-xs font-bold text-green-500 mb-1 uppercase">Personal</div>`;
-            todayPersonal.forEach(item => {
-                html += renderWidgetRow(item, 'green');
-            });
-        }
-
-        container.innerHTML = adaJadwal ? html : `<div class="text-center py-6 text-gray-400"><span class="text-xs">Tidak ada jadwal hari ini.</span></div>`;
-
-    } catch (e) {
-        container.innerHTML = '<div class="text-xs text-red-400 text-center">Gagal Widget</div>';
+    if (adaJadwal) {
+        container.innerHTML = html;
+    } else {
+        renderEmptyWidget(container);
     }
 }
 
@@ -444,32 +442,15 @@ function renderWidgetRow(item, color) {
         <div class="text-[10px] text-gray-600 mt-1">${item.ruangan || '-'}</div>
     </div>`;
 }
-loadTodaySchedule();
 
-// ==========================================
-// BAGIAN 4: RESTORE / UPLOAD ULANG DATA
-// ==========================================
-// Kalau Database lu kosong, jalankan restoreJadwal() di console browser.
-const backupJadwal = [
-    { kategori: 'personal', tanggal: new Date().toISOString().split('T')[0], waktu: '20:00-21:00', matkul: 'Belajar Coding', ruangan: 'Rumah', tipe: 'Praktek', keterangan: 'Target selesai admin' },
-    { kategori: 'daily', hari: 'Senin', waktu: '07:30-10:00', matkul: 'Algoritma', ruangan: 'G.2.1', dosen: 'Dr. Budi', kelas: '1TI1', tipe: 'Teori' }
-];
+function renderEmptyWidget(container) {
+    // Versi mini kopi buat widget
+    container.innerHTML = `
+        <div class="text-center py-6 text-gray-400">
+            <i class="fas fa-mug-hot text-2xl mb-2 text-gray-300"></i>
+            <p class="text-xs font-medium">Hari ini kosong.</p>
+            <p class="text-[10px]">Silakan ngopi dulu.</p>
+        </div>`;
+}
 
-window.restoreJadwal = async function() {
-    const password = prompt("Password Admin:");
-    if (!password) return;
-    for (const item of backupJadwal) {
-        try {
-            const dataKirim = { ...item };
-            delete dataKirim.kategori; 
-            await fetch('/api/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-                body: JSON.stringify({ kategori: item.kategori, ...dataKirim })
-            });
-            console.log(`OK: ${item.matkul}`);
-        } catch(e) {}
-    }
-    alert("Restore Selesai.");
-    location.reload();
-};
+if(document.getElementById('today-schedule-container')) loadTodaySchedule();
