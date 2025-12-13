@@ -26,10 +26,10 @@
                     <i class="fas fa-user-shield text-3xl"></i>
                 </div>
                 <h2 class="text-3xl font-bold text-gray-800">Admin Login</h2>
+                <p class="text-gray-400 mt-2 text-sm">Masuk menggunakan akun Firebase</p>
             </div>
             <div class="space-y-5">
                 <input type="email" id="email" placeholder="Email Address" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition text-center text-lg">
-                
                 <input type="password" id="password" placeholder="Password" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition text-center text-lg">
                 <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">MASUK</button>
             </div>
@@ -130,7 +130,7 @@
                 <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="font-bold text-gray-800 text-xl">Database Jadwal</h3>
-                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">Firestore</span>
+                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">Firestore Sync</span>
                     </div>
 
                     <div class="flex space-x-3 border-b border-gray-200 mb-6 overflow-x-auto pb-2">
@@ -152,11 +152,11 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="app.js"></script>
     
     <script>
-        // LOGIC FORM: HIDE ACADEMIC FIELDS IF PERSONAL
+        // LOGIC FORM
         function toggleFormFields() {
             const cat = document.getElementById('kategori').value;
             const academicGroup = document.getElementById('academic-fields');
@@ -165,8 +165,8 @@
             const fieldTanggal = document.getElementById('field-tanggal');
 
             if (cat === 'personal') {
-                academicGroup.classList.add('hidden'); // Sembunyikan Kode/Dosen/Kelas
-                personalGroup.classList.remove('hidden'); // Munculkan Keterangan
+                academicGroup.classList.add('hidden');
+                personalGroup.classList.remove('hidden');
                 fieldTanggal.classList.remove('hidden');
             } else if (cat === 'daily') {
                 academicGroup.classList.remove('hidden');
@@ -174,7 +174,6 @@
                 fieldTanggal.classList.add('hidden'); 
                 fieldHari.classList.remove('hidden');
             } else {
-                // UTS / UAS
                 academicGroup.classList.remove('hidden');
                 personalGroup.classList.add('hidden');
                 fieldTanggal.classList.remove('hidden');
