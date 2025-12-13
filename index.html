@@ -19,7 +19,7 @@
         }
     </script>
     <style>
-        .animate-bounce-slow { animation: bounce 3s infinite; }
+        .animate-bounce-slow { animation: bounce 2s infinite; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
@@ -30,55 +30,55 @@
         </a>
     </div>
 
-    <div id="main-dashboard" class="w-[90%] max-w-2xl bg-white p-8 rounded-2xl shadow-xl text-center transition-all duration-300 mt-10 border-t-4 border-primary">
-        <h1 class="text-4xl font-bold text-primary mb-2 tracking-tight">SteVenJr Schedule</h1>
-        <p class="text-gray-400 text-sm mb-8 font-medium">Manajemen Waktu & Perkuliahan</p>
+    <div id="main-dashboard" class="w-[95%] max-w-3xl bg-white p-8 rounded-3xl shadow-xl text-center transition-all duration-300 mt-5 border-t-8 border-primary">
+        <h1 class="text-3xl font-bold text-primary mb-1 tracking-tight">SteVenJr Schedule</h1>
+        <p class="text-gray-400 text-sm mb-6 font-medium">Dashboard Perkuliahan & Aktivitas</p>
         
-        <div class="bg-gray-50 rounded-xl p-4 mb-8 border border-gray-100">
-            <p id="current-date" class="text-gray-500 font-semibold uppercase tracking-widest text-xs mb-1">...</p>
-            <div id="digital-clock" class="text-7xl font-bold text-gray-800 tracking-tighter">00:00:00</div>
+        <div class="bg-gray-50 rounded-2xl p-5 mb-8 border border-gray-100 shadow-inner">
+            <p id="current-date" class="text-gray-500 font-bold uppercase tracking-widest text-xs mb-1">...</p>
+            <div id="digital-clock" class="text-6xl font-bold text-gray-800 tracking-tighter">00:00:00</div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 mb-10">
-            <div class="flex gap-4">
-                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2">
+        <div class="grid grid-cols-1 gap-3 mb-10">
+            <div class="flex gap-3">
+                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm">
                     <i class="fas fa-file-alt"></i> UTS
                 </button>
-                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2">
+                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm">
                     <i class="fas fa-graduation-cap"></i> UAS
                 </button>
             </div>
             
-            <button onclick="switchView('daily')" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-5 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition flex items-center justify-center gap-3 text-lg shadow-blue-200">
+            <button onclick="switchView('daily')" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition flex items-center justify-center gap-3 text-md shadow-blue-100">
                 <i class="fas fa-university"></i> Jadwal Kuliah Harian
             </button>
             
-            <button onclick="switchView('personal')" class="bg-white text-gray-700 border-2 border-gray-100 py-5 rounded-xl font-bold hover:bg-gray-50 hover:border-green-200 transition flex items-center justify-center gap-3 text-lg">
+            <button onclick="switchView('personal')" class="bg-white text-gray-700 border-2 border-gray-100 py-4 rounded-xl font-bold hover:bg-gray-50 hover:border-green-200 transition flex items-center justify-center gap-3 text-md">
                 <i class="fas fa-calendar-check text-green-500"></i> Jadwal Pribadi Saya
             </button>
         </div>
 
-        <div class="border-t pt-8 text-left">
+        <div class="border-t pt-6 text-left">
             <h2 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
                 <i class="fas fa-bell text-yellow-500"></i> Agenda Hari Ini
             </h2>
-            <div id="today-schedule-container" class="space-y-4">
+            <div id="today-schedule-container" class="space-y-3 min-h-[100px]">
                 <p class="text-center text-gray-400 text-sm italic">Memuat data...</p>
             </div>
         </div>
     </div>
 
-    <div id="schedule-view" class="hidden w-[95%] max-w-6xl mt-5 animate-fade-in-up pb-20">
-        <header class="bg-white p-6 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b-4 border-blue-500">
+    <div id="schedule-view" class="hidden w-[98%] max-w-6xl mt-5 animate-fade-in-up pb-20">
+        <header class="bg-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b-4 border-blue-500">
             <div>
                 <h1 id="page-title" class="text-3xl font-bold text-gray-800">Jadwal</h1>
-                <span id="page-category-badge" class="text-sm font-bold px-3 py-1 rounded bg-blue-100 text-blue-600 mt-1 inline-block">Kategori</span>
+                <span id="page-category-badge" class="text-xs font-bold px-3 py-1 rounded bg-blue-100 text-blue-600 mt-1 inline-block uppercase">...</span>
             </div>
             
             <div class="flex flex-wrap gap-3 items-center w-full md:w-auto">
                 <div class="relative flex-grow md:flex-grow-0">
-                    <input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari Mata Kuliah / Kegiatan..." class="pl-10 pr-4 py-3 border rounded-xl focus:outline-blue-500 w-full md:w-72 shadow-sm">
-                    <i class="fas fa-search absolute left-3 top-4 text-gray-400"></i>
+                    <input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari Mata Kuliah..." class="pl-10 pr-4 py-3 border rounded-xl focus:outline-blue-500 w-full md:w-64 shadow-sm text-sm">
+                    <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
                 </div>
 
                 <button onclick="checkConflictsUI()" class="bg-yellow-100 text-yellow-700 px-5 py-3 rounded-xl font-bold hover:bg-yellow-200 transition flex items-center gap-2 text-sm">
@@ -91,19 +91,19 @@
             </div>
         </header>
 
-        <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[900px] text-left border-collapse">
                     <thead>
-                        <tr class="bg-gray-50 text-gray-600 uppercase text-sm tracking-wider border-b">
+                        <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b">
                             <th class="p-5 font-bold">Waktu & Hari</th>
                             <th class="p-5 font-bold">Kegiatan / Matkul</th>
                             <th class="p-5 font-bold">Tempat & Detail</th>
                             <th class="p-5 font-bold">Tipe</th>
-                            <th class="p-5 font-bold">Keterangan / Pengajar</th>
+                            <th class="p-5 font-bold">Pengajar / Ket</th>
                         </tr>
                     </thead>
-                    <tbody id="schedule-table-body" class="divide-y divide-gray-100 text-gray-700">
+                    <tbody id="schedule-table-body" class="divide-y divide-gray-100 text-gray-700 text-sm">
                         </tbody>
                 </table>
             </div>
