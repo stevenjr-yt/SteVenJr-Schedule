@@ -12,11 +12,9 @@
         body { font-family: 'Poppins', sans-serif; background-color: #f8fafc; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        /* Scrollbar Halus */
         .custom-scroll::-webkit-scrollbar { width: 8px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -28,14 +26,12 @@
                     <i class="fas fa-user-shield text-3xl"></i>
                 </div>
                 <h2 class="text-3xl font-bold text-gray-800">Admin Login</h2>
-                <p class="text-gray-400 mt-2">Masuk untuk mengelola jadwal</p>
             </div>
             <div class="space-y-5">
-                <input type="email" id="email" placeholder="Email Address" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition">
-                <input type="password" id="password" placeholder="Password" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition">
-                <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">MASUK DASHBOARD</button>
+                <input type="password" id="password" placeholder="Masukkan Password Admin" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition text-center text-lg">
+                <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">MASUK</button>
             </div>
-            <p id="login-error" class="text-red-500 text-center mt-4 hidden font-medium">Akses Ditolak.</p>
+            <p id="login-error" class="text-red-500 text-center mt-4 hidden font-medium">Password Salah.</p>
         </div>
     </div>
 
@@ -58,18 +54,12 @@
             <div class="lg:col-span-4 space-y-6">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
                     <div class="flex justify-between items-center pb-4 border-b border-dashed">
-                        <div><h3 class="font-bold text-gray-800 text-lg">Mode UTS</h3><p class="text-xs text-gray-500 mt-1">Status: <span id="uts-status-text" class="font-bold">...</span></p></div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-uts" class="sr-only peer">
-                            <div class="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-orange-500"></div>
-                        </label>
+                        <div><h3 class="font-bold text-gray-800 text-lg">Mode UTS</h3><p class="text-xs text-gray-500">Tampilkan di Web?</p></div>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-uts" class="sr-only peer"><div class="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-orange-500"></div></label>
                     </div>
                     <div class="flex justify-between items-center">
-                        <div><h3 class="font-bold text-gray-800 text-lg">Mode UAS</h3><p class="text-xs text-gray-500 mt-1">Status: <span id="uas-status-text" class="font-bold">...</span></p></div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-uas" class="sr-only peer">
-                            <div class="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
-                        </label>
+                        <div><h3 class="font-bold text-gray-800 text-lg">Mode UAS</h3><p class="text-xs text-gray-500">Tampilkan di Web?</p></div>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-uas" class="sr-only peer"><div class="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div></label>
                     </div>
                 </div>
 
@@ -89,7 +79,7 @@
 
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Kegiatan / Matkul</label>
-                            <input type="text" id="matkul" class="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition" placeholder="Contoh: Rapat / Algoritma" required>
+                            <input type="text" id="matkul" class="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition" placeholder="Contoh: Algoritma / Main Futsal" required>
                         </div>
 
                         <div id="field-hari">
@@ -112,36 +102,24 @@
 
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tempat / Ruangan</label>
-                            <input type="text" id="ruangan" placeholder="Lokasi" class="w-full p-4 bg-gray-50 border-none rounded-xl">
+                            <input type="text" id="ruangan" placeholder="Gedung F / Rumah" class="w-full p-4 bg-gray-50 border-none rounded-xl">
                         </div>
 
                         <div id="academic-fields" class="space-y-5 pt-4 border-t border-dashed">
-                            <div>
-                                <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode MK</label>
-                                <input type="text" id="kode" placeholder="Kode" class="w-full p-4 bg-gray-50 border-none rounded-xl">
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Dosen / Pengajar</label>
-                                <input type="text" id="dosen" placeholder="Nama Dosen" class="w-full p-4 bg-gray-50 border-none rounded-xl">
-                            </div>
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode MK</label><input type="text" id="kode" placeholder="Kode" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Dosen</label><input type="text" id="dosen" placeholder="Nama Dosen" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tipe</label>
-                                    <select id="tipe" class="w-full p-4 bg-gray-50 border-none rounded-xl"><option value="Teori">Teori</option><option value="Praktek">Praktek</option><option value="Info">Info</option></select>
-                                </div>
-                                <div>
-                                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kelas</label>
-                                    <input type="text" id="kelas" placeholder="Kls" class="w-full p-4 bg-gray-50 border-none rounded-xl">
-                                </div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tipe</label><select id="tipe" class="w-full p-4 bg-gray-50 border-none rounded-xl"><option value="Teori">Teori</option><option value="Praktek">Praktek</option></select></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kelas</label><input type="text" id="kelas" placeholder="3TI1" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
                             </div>
                         </div>
 
-                        <div id="personal-fields" class="hidden">
-                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Keterangan Tambahan</label>
-                            <input type="text" id="keterangan" placeholder="Detail kegiatan..." class="w-full p-4 bg-gray-50 border-none rounded-xl">
+                        <div id="personal-fields" class="hidden pt-4 border-t border-dashed">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Keterangan / Catatan</label>
+                            <textarea id="keterangan" placeholder="Detail kegiatan..." class="w-full p-4 bg-gray-50 border-none rounded-xl" rows="2"></textarea>
                         </div>
 
-                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-green-200 transition transform hover:-translate-y-1 mt-4">SIMPAN DATA</button>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-green-200 transition mt-4">SIMPAN DATA</button>
                     </form>
                 </div>
             </div>
@@ -150,7 +128,7 @@
                 <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="font-bold text-gray-800 text-xl">Database Jadwal</h3>
-                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">Firestore Sync</span>
+                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">Firestore</span>
                     </div>
 
                     <div class="flex space-x-3 border-b border-gray-200 mb-6 overflow-x-auto pb-2">
@@ -176,7 +154,7 @@
     <script src="app.js"></script>
     
     <script>
-        // LOGIC UI FORM: Hide/Show kolom berdasarkan kategori
+        // LOGIC FORM: HIDE ACADEMIC FIELDS IF PERSONAL
         function toggleFormFields() {
             const cat = document.getElementById('kategori').value;
             const academicGroup = document.getElementById('academic-fields');
@@ -185,24 +163,22 @@
             const fieldTanggal = document.getElementById('field-tanggal');
 
             if (cat === 'personal') {
-                academicGroup.classList.add('hidden'); // Sembunyikan Dosen, Kode, Kelas
+                academicGroup.classList.add('hidden'); // Sembunyikan Kode/Dosen/Kelas
                 personalGroup.classList.remove('hidden'); // Munculkan Keterangan
                 fieldTanggal.classList.remove('hidden');
-                // fieldHari.classList.add('hidden'); // Opsional, bisa dihide kalau personal full tanggal
             } else if (cat === 'daily') {
                 academicGroup.classList.remove('hidden');
                 personalGroup.classList.add('hidden');
-                fieldTanggal.classList.add('hidden'); // Daily gapake tanggal
+                fieldTanggal.classList.add('hidden'); 
                 fieldHari.classList.remove('hidden');
             } else {
                 // UTS / UAS
                 academicGroup.classList.remove('hidden');
                 personalGroup.classList.add('hidden');
                 fieldTanggal.classList.remove('hidden');
-                fieldHari.classList.add('hidden'); // UTS/UAS pake tanggal
+                fieldHari.classList.add('hidden');
             }
         }
-        // Jalankan saat load
         toggleFormFields();
     </script>
 </body>
