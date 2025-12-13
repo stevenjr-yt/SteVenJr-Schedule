@@ -35,8 +35,12 @@
         <div id="digital-clock" class="text-6xl font-bold text-gray-800 my-4 tracking-wider">00:00:00</div>
 
         <div class="grid grid-cols-1 gap-4 mb-8 mt-8">
-            <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden bg-gradient-to-r from-red-500 to-pink-600 text-white py-4 rounded-xl font-bold hover:scale-[1.02] transition shadow-lg flex items-center justify-center gap-3">
-                <i class="fas fa-file-alt"></i> Cek Jadwal UTS/UAS
+            <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden bg-gradient-to-r from-orange-400 to-red-500 text-white py-4 rounded-xl font-bold hover:scale-[1.02] transition shadow-lg flex items-center justify-center gap-3">
+                <i class="fas fa-file-alt"></i> Cek Jadwal UTS
+            </button>
+
+            <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden bg-gradient-to-r from-red-600 to-purple-600 text-white py-4 rounded-xl font-bold hover:scale-[1.02] transition shadow-lg flex items-center justify-center gap-3">
+                <i class="fas fa-graduation-cap"></i> Cek Jadwal UAS
             </button>
             
             <button onclick="switchView('daily')" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:scale-[1.02] transition shadow-lg flex items-center justify-center gap-3">
@@ -88,6 +92,7 @@
                             <th class="p-4 font-bold">Kegiatan / Matkul</th>
                             <th class="p-4 font-bold">Detail (Kode/Ruang)</th>
                             <th class="p-4 font-bold">Info Tambahan</th>
+                            <th class="p-4 font-bold">Pengajar / Ket</th>
                         </tr>
                     </thead>
                     <tbody id="schedule-table-body" class="divide-y divide-gray-100 text-sm text-gray-700">
@@ -95,24 +100,33 @@
                 </table>
             </div>
         </div>
+        
         <p id="conflict-alert" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center font-bold">
-            Ditemukan jadwal yang bentrok! (Lihat baris berwarna merah)
-        </p>
+            </p>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
     <script src="app.js"></script>
+    
     <script>
-        // Helper kecil buat switch view (biar gak ngerusak logic app.js)
+        // Helper Switch View
         function switchView(type) {
             document.getElementById('main-dashboard').style.display = 'none';
             document.getElementById('schedule-view').style.display = 'block';
-            // Panggil fungsi global dari app.js
             if(window.loadScheduleData) {
                 window.loadScheduleData(type);
             }
+        }
+        
+        // Helper Search
+        function searchSchedule() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#schedule-table-body tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(input) ? '' : 'none';
+            });
         }
     </script>
 </body>
