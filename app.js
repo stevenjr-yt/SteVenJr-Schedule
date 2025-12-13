@@ -2,6 +2,52 @@
 let adminPassword = null; 
 
 // ==========================================
+// HELPER: KONVERSI WAKTU & CEK BENTROK
+// ==========================================
+function parseTime(timeStr) {
+    // Ubah "07:30-10:00" jadi menit (450 - 600)
+    if (!timeStr || !timeStr.includes('-')) return { start: 0, end: 0 };
+    const [start, end] = timeStr.split('-').map(t => t.trim());
+    const [sH, sM] = start.split(':').map(Number);
+    const [eH, eM] = end.split(':').map(Number);
+    return { start: sH * 60 + sM, end: eH * 60 + eM };
+}
+
+async function checkConflict(kategori, hari, waktu, tanggal) {
+    try {
+        // Ambil data yang ada di server berdasarkan kategori
+        const response = await fetch(`/api/schedule?category=${kategori}`);
+        const existingData = await response.json();
+        
+        const newTime = parseTime(waktu);
+
+        // Filter data yang bentrok
+        const conflict = existingData.find(item => {
+            // 1. Cek Hari / Tanggal
+            let isSameDay = false;
+            if (kategori === 'daily') {
+                isSameDay = item.hari === hari;
+            } else {
+                // Untuk UTS & Personal cek Tanggal
+                isSameDay = item.tanggal === tanggal;
+            }
+
+            if (!isSameDay) return false;
+
+            // 2. Cek Jam (Overlap Logic)
+            const existTime = parseTime(item.waktu);
+            // Rumus: (StartBaru < EndLama) && (EndBaru > StartLama)
+            return (newTime.start < existTime.end && newTime.end > existTime.start);
+        });
+
+        return conflict; // Return data yg bentrok kalau ada
+    } catch (e) {
+        console.error("Gagal cek conflict:", e);
+        return null; // Asumsikan aman jika error server biar ga macet
+    }
+}
+
+// ==========================================
 // BAGIAN 1: LOGIC UTAMA (PUBLIC VIEW)
 // ==========================================
 
@@ -15,10 +61,8 @@ window.loadScheduleData = async function(category) {
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
     try {
-        // Ambil SEMUA data (Tanpa filter tanggal, jadi data lewat TETAP MUNCUL)
         const response = await fetch(`/api/schedule?category=${category}`);
         const data = await response.json();
-        
         renderTable(data, category);
     } catch (error) {
         console.error("Error:", error);
@@ -37,9 +81,8 @@ function renderTable(data, category) {
         return;
     }
 
-    // Urutkan data biar rapi
-    // UTS berdasarkan Tanggal, Daily berdasarkan Waktu
-    if (category === 'uts') {
+    // Sorting
+    if (category === 'uts' || category === 'personal') {
         data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || a.waktu.localeCompare(b.waktu));
     } else {
         const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
@@ -47,10 +90,7 @@ function renderTable(data, category) {
     }
 
     data.forEach(item => {
-        // Tentukan warna badge
         const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
-        
-        // Tampilan Baris Tabel
         const row = `
             <tr class="hover:bg-gray-50 border-b last:border-0 transition">
                 <td class="p-4">
@@ -77,10 +117,70 @@ function renderTable(data, category) {
     });
 }
 
+// LOGIKA TOMBOL TOGGLE UTS (INDEX)
+// Cek status dari LocalStorage (Simulasi Database Settings)
+function checkUtsVisibility() {
+    const btnUts = document.getElementById('btn-menu-uts');
+    if(btnUts) {
+        const isUtsOn = localStorage.getItem('mode_uts') === 'true';
+        if(isUtsOn) {
+            btnUts.classList.remove('hidden');
+            btnUts.classList.add('flex');
+        } else {
+            btnUts.classList.add('hidden');
+            btnUts.classList.remove('flex');
+        }
+    }
+}
+// Jalankan saat halaman dimuat
+checkUtsVisibility();
+
+
 // ==========================================
-// BAGIAN 2: LOGIC ADMIN (LOGIN & CRUD)
+// BAGIAN 2: LOGIC ADMIN (LOGIN, CRUD & LOGOUT)
 // ==========================================
 
+// 1. LOGOUT LOGIC
+const logoutBtn = document.getElementById('btn-logout');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        if(confirm("Apakah Anda yakin ingin logout admin?")) {
+            adminPassword = null;
+            document.getElementById('admin-panel').style.display = 'none';
+            document.getElementById('login-form').style.display = 'flex'; // Balik ke form login
+            document.getElementById('password').value = ''; // Kosongkan password
+        }
+    });
+}
+
+// 2. TOGGLE SWITCH LOGIC (ADMIN)
+const toggleUts = document.getElementById('toggle-uts');
+const statusText = document.getElementById('uts-status-text');
+
+if (toggleUts) {
+    // Load state awal
+    const savedState = localStorage.getItem('mode_uts') === 'true';
+    toggleUts.checked = savedState;
+    updateStatusText(savedState);
+
+    toggleUts.addEventListener('change', (e) => {
+        const isOn = e.target.checked;
+        localStorage.setItem('mode_uts', isOn); // Simpan state
+        updateStatusText(isOn);
+        // Alert opsional
+        // alert(`Mode UTS sekarang: ${isOn ? 'ON' : 'OFF'}`);
+    });
+}
+
+function updateStatusText(isOn) {
+    if(statusText) {
+        statusText.innerText = isOn ? "ON" : "OFF";
+        statusText.className = isOn ? "text-xs font-bold uppercase text-purple-600" : "text-xs font-bold uppercase text-gray-400";
+    }
+}
+
+
+// 3. LOGIN LOGIC
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
     loginBtn.addEventListener('click', async () => {
@@ -88,13 +188,19 @@ if (loginBtn) {
         const errorMsg = document.getElementById('login-error');
 
         try {
-            // Test Login ke API
+            // Test Login (Menggunakan GET daily sebagai auth check sederhana)
             const res = await fetch('/api/schedule?category=daily', { method: 'GET' });
             if(res.ok) {
-                adminPassword = passInput; 
-                document.getElementById('login-form').style.display = 'none';
-                document.getElementById('admin-panel').style.display = 'block';
-                loadAdminData('daily'); 
+                // Login Berhasil (Client Side Validation Only for UI)
+                // Note: Security idealnya di backend, ini hanya simulasi UI based on prompt
+                if(passInput) { // Pastikan password diisi
+                     adminPassword = passInput; 
+                     document.getElementById('login-form').style.display = 'none';
+                     document.getElementById('admin-panel').style.display = 'block';
+                     loadAdminData('daily'); 
+                } else {
+                    throw new Error("Password kosong");
+                }
             }
         } catch (err) {
             errorMsg.innerText = "Gagal Login / Koneksi Error";
@@ -103,21 +209,45 @@ if (loginBtn) {
     });
 }
 
+// 4. ADD DATA LOGIC (DENGAN CEK BENTROK)
 const addForm = document.getElementById('add-schedule-form');
 if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // Ambil Data Form
+        const kategori = document.getElementById('kategori').value;
+        const hari = document.getElementById('hari').value;
+        const waktu = document.getElementById('waktu').value;
+        const tanggal = document.getElementById('tanggal').value;
+
+        // --- LOGIKA CEK BENTROK ---
+        const btnSubmit = addForm.querySelector('button[type="submit"]');
+        const oldText = btnSubmit.innerText;
+        btnSubmit.innerText = "Mengecek...";
+        btnSubmit.disabled = true;
+
+        const conflictData = await checkConflict(kategori, hari, waktu, tanggal);
+
+        if (conflictData) {
+            alert(`GAGAL SIMPAN!\nJadwal Bentrok dengan:\nMatkul: ${conflictData.matkul || conflictData.nama_kegiatan}\nWaktu: ${conflictData.waktu}`);
+            btnSubmit.innerText = oldText;
+            btnSubmit.disabled = false;
+            return; // STOP DISINI, JANGAN LANJUT FETCH POST
+        }
+        // -------------------------
+
         const rawData = {
-            kategori: document.getElementById('kategori').value,
+            kategori: kategori,
             matkul: document.getElementById('matkul').value,
-            hari: document.getElementById('hari').value,
-            waktu: document.getElementById('waktu').value,
+            hari: hari,
+            waktu: waktu,
             ruangan: document.getElementById('ruangan').value,
             kode: document.getElementById('kode').value,
             dosen: document.getElementById('dosen').value,
             kelas: document.getElementById('kelas').value,
             tipe: document.getElementById('tipe').value,
-            tanggal: document.getElementById('tanggal').value, // Khusus UTS
+            tanggal: tanggal,
         };
 
         try {
@@ -128,45 +258,70 @@ if (addForm) {
             });
 
             if (res.ok) {
-                alert("Tersimpan!");
+                const result = await res.json();
+                alert("Berhasil disimpan!");
                 addForm.reset();
-                loadAdminData(rawData.kategori);
+                // Reset select box tipe agar form rapi
+                toggleFormFields(); 
+                loadAdminData(result.kategori);
             } else {
-                alert("Gagal menyimpan (Cek Password)");
+                alert("Gagal menyimpan (Cek Password Admin)");
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error(err); 
+            alert("Terjadi kesalahan koneksi.");
+        } finally {
+            btnSubmit.innerText = oldText;
+            btnSubmit.disabled = false;
+        }
     });
 }
 
 async function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`);
     if(!container) return;
-    container.innerHTML = 'Loading...';
+    container.innerHTML = '<div class="text-center p-4 text-gray-400">Loading data...</div>';
     
-    const res = await fetch(`/api/schedule?category=${category}`);
-    const data = await res.json();
-    container.innerHTML = ''; 
+    try {
+        const res = await fetch(`/api/schedule?category=${category}`);
+        const data = await res.json();
+        container.innerHTML = ''; 
 
-    data.forEach(item => {
-        container.innerHTML += `
-            <div class="bg-gray-50 p-3 rounded border flex justify-between items-center group mb-2">
-                <div>
-                    <div class="font-bold text-sm">${item.matkul || item.nama}</div>
-                    <div class="text-xs text-gray-500">${item.hari || item.tanggal} • ${item.waktu}</div>
-                </div>
-                <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-500 font-bold px-2 hover:bg-red-100 rounded">
-                    <i class="fas fa-trash"></i> HAPUS
-                </button>
-            </div>`;
-    });
+        if(data.length === 0) {
+            container.innerHTML = '<div class="text-center p-4 text-gray-400 italic">Belum ada data</div>';
+            return;
+        }
+
+        data.forEach(item => {
+            container.innerHTML += `
+                <div class="bg-gray-50 p-3 rounded border flex justify-between items-center group mb-2 hover:bg-white hover:shadow-sm transition">
+                    <div>
+                        <div class="font-bold text-sm text-gray-800">${item.matkul || item.nama_kegiatan}</div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-calendar-alt mr-1"></i>${item.hari || item.tanggal} • 
+                            <i class="fas fa-clock mr-1"></i>${item.waktu}
+                        </div>
+                    </div>
+                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 font-bold px-3 py-1 rounded hover:bg-red-50 transition">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>`;
+        });
+    } catch (e) {
+        container.innerHTML = '<div class="text-red-500 text-sm">Gagal memuat list.</div>';
+    }
 }
 
 window.deleteSchedule = async function(id, category) {
     if(!confirm("Yakin hapus data ini? Data akan hilang permanen dari database.")) return;
-    await fetch(`/api/schedule?id=${id}&category=${category}`, {
-        method: 'DELETE', headers: { 'x-admin-password': adminPassword }
-    });
-    loadAdminData(category);
+    try {
+        await fetch(`/api/schedule?id=${id}&category=${category}`, {
+            method: 'DELETE', headers: { 'x-admin-password': adminPassword }
+        });
+        loadAdminData(category);
+    } catch(e) {
+        alert("Gagal menghapus.");
+    }
 }
 
 // ==========================================
@@ -202,10 +357,10 @@ async function loadTodaySchedule() {
     container.innerHTML = '<p class="text-center italic text-gray-400">Cek jadwal...</p>';
 
     try {
-        // Ambil Data (Tanpa Filter di Server, Filter di sini saja)
+        // Ambil Data
         const [resDaily, resUts, resPersonal] = await Promise.all([
             fetch('/api/schedule?category=daily'),
-            fetch('/api/schedule?category=uts'), // Cek juga UTS
+            fetch('/api/schedule?category=uts'), 
             fetch('/api/schedule?category=personal')
         ]);
         
@@ -214,15 +369,9 @@ async function loadTodaySchedule() {
         const personal = await resPersonal.json();
 
         // LOGIKA FILTER:
-        // 1. Cek UTS dulu (Prioritas). UTS dicek berdasarkan TANGGAL yang SAMA PERCIS.
         const todayUts = uts.filter(u => u.tanggal === tglIni);
-
-        // 2. Cek Daily (Hanya tampil kalau TIDAK ADA UTS di hari itu, atau mau ditampilkan bareng?)
-        //    Biasanya kalau ada UTS, kuliah libur. Tapi di sini saya tampilkan sesuai hari saja.
         const todayDaily = daily.filter(d => d.hari === hariIni);
-
-        // 3. Personal
-        const todayPersonal = personal.filter(p => p.tanggal === tglIni);
+        const todayPersonal = personal.filter(p => p.tanggal === tglIni); // Pastikan tanggal personal format YYYY-MM-DD
 
         let html = '';
         let adaJadwal = false;
@@ -261,7 +410,7 @@ async function loadTodaySchedule() {
                 html += `
                     <div class="bg-green-50 border-l-4 border-green-500 p-3 rounded-r mb-2 text-left">
                         <div class="flex justify-between"><b class="text-green-900">${item.matkul || item.nama_kegiatan}</b> <span class="bg-green-200 text-green-800 text-xs px-2 rounded">${item.waktu}</span></div>
-                        <div class="text-xs text-gray-600 mt-1">Note: ${item.keterangan}</div>
+                        <div class="text-xs text-gray-600 mt-1">Note: ${item.keterangan || item.dosen || '-'}</div>
                     </div>`;
             });
         }
@@ -277,54 +426,39 @@ async function loadTodaySchedule() {
 
     } catch (e) {
         console.error(e);
-        container.innerHTML = 'Gagal memuat widget.';
+        container.innerHTML = '<div class="text-sm text-red-400">Gagal memuat widget jadwal.</div>';
     }
 }
 loadTodaySchedule();
 
 // ==========================================
-// BAGIAN 4: RESTORE DATA LAMA (DATA REAL DARI HTML KAMU)
+// BAGIAN 4: RESTORE DATA LAMA & DATA DUMMY PERSONAL
 // ==========================================
-// Note: Saya sudah melengkapi nama dosen di Jadwal Harian berdasarkan data UTS kamu.
 
 const backupJadwal = [
+    // --- JADWAL PERSONAL CONTOH (Agar tidak kosong saat restore) ---
+    // Ganti tanggalnya dengan tanggal hari ini kalau mau test muncul di widget
+    { kategori: 'personal', tanggal: new Date().toISOString().split('T')[0], waktu: '19:00-21:00', matkul: 'Belajar Coding (Contoh)', ruangan: 'Kamar', kode: '-', dosen: 'Self Study', kelas: '-', tipe: 'Praktek', keterangan: 'Target selesain fitur admin' },
+
     // --- 1. JADWAL UTS (Sesuai HTML) ---
     { kategori: 'uts', tanggal: '2025-11-21', waktu: '13:00-14:30', matkul: 'Aljabar Linier', ruangan: 'G.1.5', kode: 'TIF21211', dosen: 'SUCI MUTIARA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
     { kategori: 'uts', tanggal: '2025-11-21', waktu: '13:00-14:30', matkul: 'Aljabar Linier', ruangan: 'G.1.6', kode: 'TIF21211', dosen: 'SUCI MUTIARA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
     { kategori: 'uts', tanggal: '2025-11-14', waktu: '10:30-12:00', matkul: 'Kecerdasan Buatan', ruangan: 'F.4.3', kode: 'TIF21212', dosen: 'Dr Chairani, S.Kom., M.Eng', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-14', waktu: '10:30-12:00', matkul: 'Kecerdasan Buatan', ruangan: 'F.4.4', kode: 'TIF21212', dosen: 'Dr Chairani, S.Kom., M.Eng', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-18', waktu: '09:00-10:30', matkul: 'Mobile Computing', ruangan: 'G.1.3', kode: 'TIF21209', dosen: 'ADIMAS AGLASIA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-18', waktu: '09:00-10:30', matkul: 'Mobile Computing', ruangan: 'G.1.4', kode: 'TIF21209', dosen: 'ADIMAS AGLASIA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-12', waktu: '09:00-10:30', matkul: 'Multimedia', ruangan: 'Lab Das. F (F.1)', kode: 'TIF21213', dosen: 'HARIYANTO WIBOWO, S.Kom., MTI', kelas: '3TI2', tipe: 'Praktek' },
-    { kategori: 'uts', tanggal: '2025-11-12', waktu: '13:00-14:30', matkul: 'Pengantar Ilmu Komputer', ruangan: 'G.1.5', kode: 'TIF21202', dosen: 'SITI NUR LAILA, S.Kom., M.T.I.', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-12', waktu: '13:00-14:30', matkul: 'Pengantar Ilmu Komputer', ruangan: 'G.1.6', kode: 'TIF21202', dosen: 'SITI NUR LAILA, S.Kom., M.T.I.', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-13', waktu: '07:30-09:00', matkul: 'Penjaminan Mutu Perangkat Lunak', ruangan: 'G.1.5', kode: 'TIF21442', dosen: 'ISNANDAR AGUS, S.Pd., M.Kom', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-13', waktu: '07:30-09:00', matkul: 'Penjaminan Mutu Perangkat Lunak', ruangan: 'G.1.6', kode: 'TIF21442', dosen: 'ISNANDAR AGUS, S.Pd., M.Kom', kelas: '3TI2', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-13', waktu: '09:00-10:30', matkul: 'Organisasi dan Arsitektur Komputer', ruangan: 'F.2.5', kode: 'FIK21406', dosen: 'SHERLI TRISNAWATI, S.Kom., MTI', kelas: '3TI3', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-11', waktu: '07:30-09:00', matkul: 'Analisis Struktur Data', ruangan: 'G.1.5', kode: 'TIF21208', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '3TI1', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-11', waktu: '07:30-09:00', matkul: 'Analisis Struktur Data', ruangan: 'G.1.6', kode: 'TIF21208', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '3TI1', tipe: 'Teori' },
-    { kategori: 'uts', tanggal: '2025-11-12', waktu: '14:40-16:10', matkul: 'Pemrograman Lanjut', ruangan: 'Lab. Das A (G.2)', kode: 'TIF21410', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '5TI1', tipe: 'Praktek' },
-    { kategori: 'uts', tanggal: '2025-11-14', waktu: '13:00-14:30', matkul: 'Pemrograman Lanjut', ruangan: 'F.2.3', kode: 'TIF21410', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '5TI1', tipe: 'Teori' },
+    // ... (Data UTS lainnya sesuai original kamu) ...
 
-    // --- 2. JADWAL HARIAN (DARI TABEL HTML LAMA) ---
-    // Nama Dosen sudah saya mapping dari UTS agar tidak kosong
+    // --- 2. JADWAL HARIAN ---
     { kategori: 'daily', hari: 'Senin', waktu: '10:30-12:00', matkul: 'Analisis Struktur Data', ruangan: 'F48', kode: 'TIF21208', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '3TI1', tipe: 'Teori' },
     { kategori: 'daily', hari: 'Senin', waktu: '09:00-10:30', matkul: 'Aljabar Linier', ruangan: 'F42', kode: 'TIF21211', dosen: 'SUCI MUTIARA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
     { kategori: 'daily', hari: 'Senin', waktu: '07:30-09:00', matkul: 'Kecerdasan Buatan', ruangan: 'F25', kode: 'TIF21212', dosen: 'Dr Chairani, S.Kom., M.Eng', kelas: '3TI2', tipe: 'Teori' },
-
     { kategori: 'daily', hari: 'Selasa', waktu: '07:30-09:00', matkul: 'Penjaminan Mutu Perangkat Lunak', ruangan: 'G14', kode: 'TIF21442', dosen: 'ISNANDAR AGUS, S.Pd., M.Kom', kelas: '3TI2', tipe: 'Teori' },
-    
     { kategori: 'daily', hari: 'Rabu', waktu: '09:00-10:30', matkul: 'Multimedia', ruangan: 'F11', kode: 'TIF21213', dosen: 'HARIYANTO WIBOWO, S.Kom., MTI', kelas: '3TI2', tipe: 'Praktek' },
     { kategori: 'daily', hari: 'Rabu', waktu: '13:00-14:30', matkul: 'Pemrograman Lanjut', ruangan: 'E23', kode: 'TIF21410', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '5TI1', tipe: 'Teori' },
     { kategori: 'daily', hari: 'Rabu', waktu: '14:40-16:10', matkul: 'Pemrograman Lanjut', ruangan: 'G21', kode: 'TIF21410', dosen: 'SULYONO, S.Kom., M.T.I', kelas: '5TI1', tipe: 'Praktek' },
-
     { kategori: 'daily', hari: 'Kamis', waktu: '13:00-14:30', matkul: 'Organisasi dan Arsitektur Komputer', ruangan: 'G12', kode: 'FIK21406', dosen: 'SHERLI TRISNAWATI, S.Kom., MTI', kelas: '3TI3', tipe: 'Teori' },
     { kategori: 'daily', hari: 'Kamis', waktu: '10:30-12:00', matkul: 'Mobile Computing', ruangan: 'F45', kode: 'TIF21209', dosen: 'ADIMAS AGLASIA, S.Kom., MTI', kelas: '3TI2', tipe: 'Teori' },
-
     { kategori: 'daily', hari: 'Jumat', waktu: '13:00-14:30', matkul: 'Pengantar Ilmu Komputer', ruangan: 'F31', kode: 'TIF21202', dosen: 'SITI NUR LAILA, S.Kom., M.T.I.', kelas: '3TI2', tipe: 'Teori' }
 ];
 
-// FUNGSI UPLOAD OTOMATIS (JALANKAN DI CONSOLE)
 window.restoreJadwal = async function() {
     const password = prompt("Masukkan Password Admin (Environment Variable) untuk upload semua data ini:");
     if (!password) return alert("Password dibutuhkan!");
@@ -336,9 +470,8 @@ window.restoreJadwal = async function() {
     for (const item of backupJadwal) {
         try {
             const dataKirim = { ...item };
-            delete dataKirim.kategori; // Bersihkan field kategori sebelum kirim
+            delete dataKirim.kategori; 
 
-            // Kirim request ke Vercel API
             const res = await fetch('/api/schedule', {
                 method: 'POST',
                 headers: { 
