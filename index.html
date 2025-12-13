@@ -4,9 +4,9 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SteVenJr Scheduler</title>
+    <title>Jadwal SteVenJr</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -20,6 +20,9 @@
     </script>
     <style>
         .animate-bounce-slow { animation: bounce 3s infinite; }
+        /* Biar scrollbar di widget kalo kepanjangan tetep rapi */
+        .widget-scroll::-webkit-scrollbar { width: 4px; }
+        .widget-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
@@ -30,7 +33,7 @@
         </a>
     </div>
 
-    <div id="main-dashboard" class="w-[95%] max-w-3xl bg-white p-8 rounded-3xl shadow-xl text-center transition-all duration-300 mt-5 border-t-8 border-primary">
+    <div id="main-dashboard" class="w-[95%] max-w-2xl bg-white p-8 rounded-3xl shadow-xl text-center transition-all duration-300 mt-5 border-t-8 border-primary">
         <h1 class="text-3xl font-bold text-primary mb-1 tracking-tight">SteVenJr Schedule</h1>
         <p class="text-gray-400 text-sm mb-6 font-medium">Dashboard Perkuliahan & Aktivitas</p>
         
@@ -62,7 +65,7 @@
             <h2 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
                 <i class="fas fa-bell text-yellow-500"></i> Agenda Hari Ini
             </h2>
-            <div id="today-schedule-container" class="space-y-4 min-h-[100px]">
+            <div id="today-schedule-container" class="space-y-4 min-h-[100px] widget-scroll">
                 <p class="text-center text-gray-400 text-sm italic">Memuat data...</p>
             </div>
         </div>
@@ -117,6 +120,59 @@
     <script src="app.js"></script>
     
     <script>
+        // LOGIC KHUSUS WIDGET BESAR
+        // Ini override fungsi renderWidgetRow di app.js biar tampilan di Index jadi GEDE dan DETAIL
+        
+        function rowWidget(i, c) {
+            // Tentukan Warna Border & Background
+            let colors = {
+                'orange': 'border-orange-500 bg-orange-50 text-orange-900',
+                'purple': 'border-purple-500 bg-purple-50 text-purple-900',
+                'blue':   'border-blue-500 bg-blue-50 text-blue-900',
+                'green':  'border-green-500 bg-green-50 text-green-900'
+            }[c];
+
+            // Detail Logic: Kalau personal ambil 'keterangan', akademik ambil 'dosen' & 'kelas'
+            let detailUtama = i.ruangan || 'Online / TBD';
+            let detailTambahan = '';
+
+            if (c === 'green') { // Personal
+                detailTambahan = i.keterangan || '-';
+            } else { // Akademik (UTS/UAS/Daily)
+                let kelas = i.kelas ? `(${i.kelas})` : '';
+                let dosen = i.dosen ? `• ${i.dosen}` : '';
+                detailTambahan = `${kelas} ${dosen}`;
+            }
+
+            // HTML WIDGET YANG BARU (LEBIH BESAR & DETAIL)
+            return `
+            <div class="${colors} border-l-8 p-5 rounded-xl mb-4 shadow-sm hover:shadow-md transition relative overflow-hidden group">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1 pr-4">
+                        <h4 class="font-extrabold text-lg leading-tight mb-2">${i.matkul || i.nama_kegiatan}</h4>
+                        
+                        <div class="text-sm opacity-80 space-y-1">
+                            <p class="flex items-center gap-2 font-semibold">
+                                <i class="fas fa-map-marker-alt w-4 text-center"></i> 
+                                ${detailUtama}
+                            </p>
+                            <p class="flex items-center gap-2 text-xs italic">
+                                <i class="fas fa-info-circle w-4 text-center"></i> 
+                                ${detailTambahan}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-end">
+                        <span class="bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm border border-black/5 whitespace-nowrap">
+                            ${i.waktu}
+                        </span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // --- Helper View ---
         function switchView(type) {
             document.getElementById('main-dashboard').style.display = 'none';
             document.getElementById('schedule-view').style.display = 'block';
@@ -133,4 +189,3 @@
     </script>
 </body>
 </html>
-
