@@ -1,3 +1,11 @@
+
+// INIT FIREBASE
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+// Kita pake Auth untuk Login
+const auth = firebase.auth();
+
 // Konfigurasi State
 let adminPassword = null; 
 
@@ -33,19 +41,15 @@ function renderTable(data, category) {
         return;
     }
 
-    // Sorting
     if (category === 'daily') {
         const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
         data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || a.waktu.localeCompare(b.waktu));
     } else {
-        // UTS, UAS, Personal sort tanggal
         data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || a.waktu.localeCompare(b.waktu));
     }
 
     data.forEach(item => {
         const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
-        
-        // Tambah data attribute buat cek bentrok
         const row = `
             <tr class="hover:bg-gray-50 border-b last:border-0 transition schedule-row" data-hari="${item.hari || item.tanggal}" data-waktu="${item.waktu}">
                 <td class="p-4">
@@ -72,13 +76,12 @@ function renderTable(data, category) {
     });
 }
 
-// LOGIC CEK BENTROK (IJO / MERAH)
+// LOGIC CEK BENTROK
 window.checkConflictsUI = function() {
     const rows = document.querySelectorAll('.schedule-row');
     const alertBox = document.getElementById('conflict-alert');
     let conflictFound = false;
 
-    // Helper Parse Jam
     const parseTime = (t) => {
         if(!t) return {s:0,e:0};
         const [s, e] = t.split('-').map(x => {
@@ -88,10 +91,8 @@ window.checkConflictsUI = function() {
         return {s, e};
     };
 
-    // Reset style
     rows.forEach(r => r.classList.remove('bg-red-50', 'border-l-4', 'border-red-500'));
 
-    // Loop Cek
     for (let i = 0; i < rows.length; i++) {
         const rowA = rows[i];
         const tA = parseTime(rowA.dataset.waktu);
@@ -110,7 +111,6 @@ window.checkConflictsUI = function() {
         }
     }
 
-    // Tampilkan Alert Ijo/Merah
     if (alertBox) {
         alertBox.classList.remove('hidden');
         if (conflictFound) {
@@ -124,7 +124,7 @@ window.checkConflictsUI = function() {
     }
 }
 
-// TOGGLE UTS & UAS DI INDEX (Pake localStorage biar gampang tanpa config db)
+// TOGGLE UTS & UAS DI INDEX
 function checkToggles() {
     const btnUts = document.getElementById('btn-menu-uts');
     const btnUas = document.getElementById('btn-menu-uas');
@@ -144,7 +144,7 @@ checkToggles();
 
 
 // ==========================================
-// BAGIAN 2: LOGIC ADMIN (LOGIN & CRUD)
+// BAGIAN 2: LOGIC ADMIN (LOGIN FIREBASE AUTH)
 // ==========================================
 
 // Handle Toggle Change di Admin
@@ -171,23 +171,70 @@ window.switchTab = function(targetId, btn) {
     loadAdminData(category);
 }
 
+// --- LOGIC LOGIN FIREBASE AUTH (INI YANG BARU) ---
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
-    loginBtn.addEventListener('click', async () => {
-        const passInput = document.getElementById('password').value;
+    loginBtn.addEventListener('click', () => {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
         const errorMsg = document.getElementById('login-error');
 
-        try {
-            const res = await fetch('/api/schedule?category=daily', { method: 'GET' });
-            if(res.ok) {
-                adminPassword = passInput; 
+        // Panggil Firebase Auth
+        auth.signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                // Login Berhasil
+                // Kita simpan password ke variabel adminPassword supaya request API tetap jalan
+                adminPassword = pass;
+                
+                // Pindah Tampilan
                 document.getElementById('login-form').style.display = 'none';
                 document.getElementById('admin-panel').style.display = 'block';
-                loadAdminData('daily'); 
-            }
-        } catch (err) {
-            errorMsg.innerText = "Gagal Login / Koneksi Error";
-            errorMsg.style.display = 'block';
+                loadAdminData('daily');
+            })
+            .catch((error) => {
+                // Login Gagal
+                let errorMessage = "Terjadi Kesalahan.";
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = "Data user tidak ada!";
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = "Password salah!";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = "Format email salah!";
+                }
+                
+                errorMsg.innerText = errorMessage;
+                errorMsg.style.display = 'block';
+            });
+    });
+}
+
+// Cek Status Auth saat Load (Biar gak login ulang kalau refresh)
+auth.onAuthStateChanged((user) => {
+    if (user && document.getElementById('admin-panel')) {
+        // Kalau sudah login sebelumnya
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        loadAdminData('daily');
+        // Note: adminPassword akan null saat refresh karena JS reset. 
+        // Idealnya backend API pake token, tapi karena request lu pake header password, 
+        // User harus login ulang untuk set variable adminPassword atau kita simpan di session storage (opsional).
+        // Untuk sekarang, user akan diminta login ulang jika variable hilang, atau kita paksa logout UI.
+        // Biar aman:
+        if(!adminPassword) {
+             document.getElementById('login-form').style.display = 'flex';
+             document.getElementById('admin-panel').style.display = 'none';
+        }
+    }
+});
+
+// LOGIC LOGOUT
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+        if(confirm("Logout?")) {
+            auth.signOut().then(() => {
+                location.reload();
+            });
         }
     });
 }
@@ -207,6 +254,7 @@ if (addForm) {
             kelas: document.getElementById('kelas').value,
             tipe: document.getElementById('tipe').value,
             tanggal: document.getElementById('tanggal').value,
+            keterangan: document.getElementById('keterangan').value,
         };
 
         try {
@@ -221,7 +269,7 @@ if (addForm) {
                 addForm.reset();
                 loadAdminData(rawData.kategori);
             } else {
-                alert("Gagal menyimpan (Cek Password)");
+                alert("Gagal menyimpan (Cek Password/Auth)");
             }
         } catch (err) { console.error(err); }
     });
@@ -237,10 +285,13 @@ async function loadAdminData(category) {
     container.innerHTML = ''; 
 
     data.forEach(item => {
+        // Safe Title
+        const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+        
         container.innerHTML += `
             <div class="bg-gray-50 p-2 rounded border flex justify-between items-center group mb-2">
                 <div class="overflow-hidden">
-                    <div class="font-bold text-xs truncate">${item.matkul || item.nama}</div>
+                    <div class="font-bold text-xs truncate">${title}</div>
                     <div class="text-[10px] text-gray-500">${item.hari || item.tanggal} • ${item.waktu}</div>
                 </div>
                 <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-500 text-[10px] font-bold px-2 hover:bg-red-100 rounded">HAPUS</button>
@@ -331,18 +382,17 @@ async function loadTodaySchedule() {
     }
 }
 function rowWidget(item, c) {
-    return `<div class="bg-${c}-50 border-l-2 border-${c}-500 p-2 rounded mb-1 text-left"><div class="flex justify-between"><b class="text-${c}-900 text-xs">${item.matkul || item.nama_kegiatan}</b> <span class="bg-white text-[10px] px-1 rounded border">${item.waktu}</span></div></div>`;
+    const title = item.matkul || item.nama_kegiatan || "Kegiatan";
+    return `<div class="bg-${c}-50 border-l-2 border-${c}-500 p-2 rounded mb-1 text-left"><div class="flex justify-between"><b class="text-${c}-900 text-xs">${title}</b> <span class="bg-white text-[10px] px-1 rounded border">${item.waktu}</span></div></div>`;
 }
 loadTodaySchedule();
 
 // ==========================================
-// BAGIAN 4: RESTORE DATA (UPDATE UNTUK UAS JUGA)
+// BAGIAN 4: RESTORE DATA
 // ==========================================
 const backupJadwal = [
-    // UTS & HARIAN LAMA LU
     { kategori: 'uts', tanggal: '2025-11-21', waktu: '13:00-14:30', matkul: 'Aljabar Linier', ruangan: 'G.1.5', kode: 'TIF21211', dosen: 'SUCI MUTIARA', kelas: '3TI2', tipe: 'Teori' },
     { kategori: 'daily', hari: 'Senin', waktu: '10:30-12:00', matkul: 'Analisis Struktur Data', ruangan: 'F48', kode: 'TIF21208', dosen: 'SULYONO', kelas: '3TI1', tipe: 'Teori' },
-    // CONTOH UAS
     { kategori: 'uas', tanggal: '2026-01-20', waktu: '08:00-10:00', matkul: 'UAS Algoritma', ruangan: 'Lab 1', kode: 'ALG01', dosen: 'Pak Budi', kelas: '1TI1', tipe: 'Praktek' }
 ];
 
