@@ -97,15 +97,22 @@
         </div>
         <p id="conflict-alert" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center font-bold">
             Ditemukan jadwal yang bentrok! (Lihat baris berwarna merah)
-        </button>
+        </p>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script src="app.js"></script>
     <script>
+        // Helper kecil buat switch view (biar gak ngerusak logic app.js)
         function switchView(type) {
             document.getElementById('main-dashboard').style.display = 'none';
             document.getElementById('schedule-view').style.display = 'block';
-            window.loadScheduleData(type);
+            // Panggil fungsi global dari app.js
+            if(window.loadScheduleData) {
+                window.loadScheduleData(type);
+            }
         }
     </script>
 </body>
