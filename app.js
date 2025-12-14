@@ -127,8 +127,36 @@ if (btnLogout) {
 // 2. HELPER FUNCTIONS
 // ==========================================
 
-function getSafeTitle(item) {
-    return item.matkul || item.nama_kegiatan || item.nama || item.keterangan || "Kegiatan";
+// Helper untuk mengecek bentrok waktu
+function isTimeConflict(existingWaktu, newWaktu) {
+    // Helper untuk mengubah "HH:MM" menjadi total menit dari tengah malam
+    const timeToMinutes = (time) => {
+        try {
+            const [h, m] = time.split(':').map(Number);
+            return h * 60 + m;
+        } catch (error) {
+            console.error("Format waktu salah:", time);
+            return 0; // Kembalikan 0 jika gagal parse
+        }
+    };
+
+    try {
+        // Parsing rentang waktu yang ada
+        const [existingStartStr, existingEndStr] = existingWaktu.split('-');
+        const existingStart = timeToMinutes(existingStartStr.trim());
+        const existingEnd = timeToMinutes(existingEndStr.trim());
+        
+        // Parsing rentang waktu baru
+        const [newStartStr, newEndStr] = newWaktu.split('-');
+        const newStart = timeToMinutes(newStartStr.trim());
+        const newEnd = timeToMinutes(newEndStr.trim());
+    
+        // Logika bentrok: Konflik terjadi jika (newStart < existingEnd) AND (newEnd > existingStart)
+        return newStart < existingEnd && newEnd > existingStart;
+    } catch (error) {
+        console.error("Terjadi error saat mengecek bentrok waktu:", error);
+        return false; // Jangan anggap bentrok jika ada error
+    }
 }
 
 // ==========================================
@@ -429,5 +457,6 @@ function checkToggles() {
         });
     }
 }
+
 
 
