@@ -4,6 +4,19 @@
 let adminPassword = null; 
 let adminEmail = null;
 
+// --- TAMBAH FUNGSI INI ---
+function showAdminPanel() {
+    const loginForm = document.getElementById('login-form');
+    const adminPanel = document.getElementById('admin-panel');
+
+    if(loginForm) loginForm.style.display = 'none';
+    if(adminPanel) {
+        adminPanel.style.display = 'block';
+        // Auto-load jadwal harian saat panel muncul
+        loadAdminData('daily'); 
+    }
+}
+
 // Pemicu Utama Saat Halaman Dimuat
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cek Sesi Login yang tersimpan di LocalStorage (Jika ada)
@@ -416,4 +429,5 @@ function checkToggles() {
         });
     }
 }
+
 
