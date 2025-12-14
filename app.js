@@ -1,22 +1,29 @@
 // ==========================================
-// Konfigurasi State & Inisialisasi
+// KONFIGURASI STATE & INISIALISASI
 // ==========================================
 let adminPassword = null; 
+let adminEmail = null;
 
 // Pemicu Utama Saat Halaman Dimuat
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Cek Sesi Login
-    const savedPass = localStorage.getItem('admin_session');
-    if (savedPass) {
-        validateLogin(savedPass, true);
+    // 1. Cek Sesi Login yang tersimpan di LocalStorage (Jika ada)
+    const savedEmail = localStorage.getItem('admin_email');
+    const savedPass = localStorage.getItem('admin_password');
+
+    if (savedEmail && savedPass) {
+        // Coba validasi ulang (bisa langsung masuk tanpa cek server jika backend percaya localStorage)
+        // KITA PILIH VALIDASI SERVER RINGAN:
+        adminEmail = savedEmail;
+        adminPassword = savedPass;
+        // Panggil fungsi untuk menampilkan panel tanpa melalui form login
+        showAdminPanel();
     }
 
     // 2. Jalankan Jam Digital
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 3. Pemicu Widget Beranda (Agenda Hari Ini)
-    // Ini yang membuat Beranda tidak lagi stuck di "Memuat data..."
+    // 3. Pemicu Widget Beranda
     if (document.getElementById('today-schedule-container')) {
         loadTodaySchedule();
     }
@@ -26,84 +33,95 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 1. HELPER FUNCTIONS
-// ==========================================
-
-function getSafeTitle(item) {
-    return item.matkul || item.nama_kegiatan || item.nama || item.keterangan || "Kegiatan";
-}
-
-// ==========================================
-// 2. LOGIC LOGIN ADMIN (VERIFIKASI KE API)
+// 1. LOGIC LOGIN ADMIN (VERIFIKASI KE API BACKEND)
 // ==========================================
 
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
+    loginBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value;
         const pass = document.getElementById('password').value;
         const errorMsg = document.getElementById('login-error');
         
-        if(!pass) {
-            errorMsg.innerText = "Password tidak boleh kosong!";
+        errorMsg.style.display = 'none';
+
+        if(!email || !pass) {
+            errorMsg.innerText = "Email dan Password tidak boleh kosong!";
             errorMsg.style.display = 'block';
             return;
         }
 
         loginBtn.innerText = "Memeriksa...";
         loginBtn.disabled = true;
-        validateLogin(pass, false);
+
+        try {
+            // ** LANGKAH BARU: Verifikasi ke API Backend **
+            // API Backend Anda bertanggung jawab memverifikasi Email/Pass ini ke Firebase Auth
+            const res = await fetch('/api/schedule.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password: pass }) 
+            });
+
+            if (res.ok) {
+                // LOGIN BERHASIL (Backend bilang OK)
+                adminEmail = email;
+                adminPassword = pass; 
+                localStorage.setItem('admin_email', email);
+                localStorage.setItem('admin_password', pass); 
+                
+                showAdminPanel();
+
+            } else {
+                // LOGIN GAGAL (Status 401/403 dari API Backend)
+                const errorData = await res.json();
+                throw new Error(errorData.message || "Akses Ditolak: Kredensial Salah.");
+            }
+        } catch (err) {
+            console.error("Login Gagal:", err.message);
+            errorMsg.innerText = err.message;
+            errorMsg.style.display = 'block';
+        } finally {
+            loginBtn.innerText = "MASUK";
+            loginBtn.disabled = false;
+        }
     });
 }
 
-async function validateLogin(password, isAutoLogin) {
+function showAdminPanel() {
     const loginForm = document.getElementById('login-form');
     const adminPanel = document.getElementById('admin-panel');
-    const errorMsg = document.getElementById('login-error');
-    const btn = document.getElementById('btn-login');
 
-    try {
-        // Mengetes password ke API
-        const res = await fetch('/api/schedule?category=daily', {
-            method: 'GET',
-            headers: { 'x-admin-password': password }
-        });
-
-        if (res.ok) {
-            // LOGIN BENAR-BENAR SUKSES
-            adminPassword = password;
-            localStorage.setItem('admin_session', password); 
-            
-            if(loginForm) loginForm.style.display = 'none';
-            if(adminPanel) {
-                adminPanel.style.display = 'block';
-                loadAdminData('daily'); 
-            }
-        } else {
-            // LOGIN GAGAL (Status 401/403 dari Firebase/Backend)
-            throw new Error("Password Salah");
-        }
-    } catch (err) {
-        if(!isAutoLogin) {
-            errorMsg.innerText = "Akses Ditolak: Password Salah!";
-            errorMsg.style.display = 'block';
-        }
-        localStorage.removeItem('admin_session');
-        adminPassword = null;
-    } finally {
-        if(btn) {
-            btn.innerText = "MASUK";
-            btn.disabled = false;
-        }
+    if(loginForm) loginForm.style.display = 'none';
+    if(adminPanel) {
+        adminPanel.style.display = 'block';
+        // Auto-load jadwal harian saat panel muncul
+        loadAdminData('daily'); 
     }
 }
 
 // Logout
-window.logoutAdmin = function() {
-    if(confirm("Yakin Logout?")) {
-        adminPassword = null;
-        localStorage.removeItem('admin_session');
-        location.reload();
-    }
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+        if(confirm("Yakin Logout?")) {
+            adminPassword = null;
+            adminEmail = null;
+            localStorage.removeItem('admin_email');
+            localStorage.removeItem('admin_password');
+            location.reload();
+        }
+    });
+}
+
+// ==========================================
+// 2. HELPER FUNCTIONS
+// ==========================================
+
+function getSafeTitle(item) {
+    return item.matkul || item.nama_kegiatan || item.nama || item.keterangan || "Kegiatan";
 }
 
 // ==========================================
@@ -114,7 +132,7 @@ window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
     const titleElement = document.getElementById('page-category-badge');
     
-    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400">Loading data...</td></tr>';
+    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400">Memuat data...</td></tr>';
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
     try {
@@ -169,33 +187,56 @@ function renderTable(data, category) {
 // 4. BAGIAN ADMIN (CRUD)
 // ==========================================
 
+window.switchTab = function(targetId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = "tab-btn px-5 py-3 text-sm font-bold text-gray-500 hover:text-blue-600 border-b-2 border-transparent transition whitespace-nowrap";
+    });
+    
+    btn.className = "tab-btn active px-5 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition whitespace-nowrap";
+    
+    // Ambil kategori dari ID (contoh: list-daily -> daily)
+    loadAdminData(targetId.replace('list-', ''));
+}
+
+
 async function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`);
     if(!container) return;
-    container.innerHTML = '<div class="text-xs text-gray-400 p-2">Loading...</div>';
+    container.innerHTML = '<div class="text-xs text-gray-400 p-2">Loading data...</div>';
+
+    // Cek dulu apakah ada sesi admin
+    if (!adminPassword) {
+        container.innerHTML = '<div class="text-xs text-red-400 p-4 text-center italic">Akses Ditolak. Silakan Login.</div>';
+        return;
+    }
     
     try {
         const res = await fetch(`/api/schedule?category=${category}`);
         const data = await res.json();
         container.innerHTML = ''; 
 
-        if (data.length === 0) {
-            container.innerHTML = '<div class="text-xs text-gray-400 p-4 text-center">Data Kosong</div>';
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="text-xs text-gray-400 p-4 text-center italic">Data Kosong</div>';
             return;
         }
 
         data.forEach(item => {
             container.innerHTML += `
-                <div class="bg-gray-50 p-2 rounded border flex justify-between items-center mb-2">
-                    <div>
-                        <div class="font-bold text-xs">${getSafeTitle(item)}</div>
-                        <div class="text-[10px] text-gray-500">${item.hari || item.tanggal} • ${item.waktu}</div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                    <div class="overflow-hidden">
+                        <div class="font-bold text-sm text-gray-800 truncate">${getSafeTitle(item)}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">${item.hari || item.tanggal} • <span class="text-blue-500 font-medium">${item.waktu}</span></div>
                     </div>
-                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-500 text-[10px] font-bold px-2">HAPUS</button>
+                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
                 </div>`;
         });
     } catch(e) {
-        container.innerHTML = '<div class="text-xs text-red-400 p-2">Gagal Load</div>';
+        container.innerHTML = '<div class="text-xs text-red-400 p-2">Gagal Load Data API.</div>';
     }
 }
 
@@ -203,6 +244,13 @@ const addForm = document.getElementById('add-schedule-form');
 if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (!adminPassword) {
+            alert("Sesi habis, silakan login ulang.");
+            location.reload();
+            return;
+        }
+        
         const rawData = {
             kategori: document.getElementById('kategori').value,
             matkul: document.getElementById('matkul').value,
@@ -217,32 +265,56 @@ if (addForm) {
             keterangan: document.getElementById('keterangan').value,
         };
 
-        const res = await fetch('/api/schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-            body: JSON.stringify(rawData)
-        });
+        try {
+            const res = await fetch('/api/schedule', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'x-admin-password': adminPassword // Kirim password tersimpan
+                },
+                body: JSON.stringify(rawData)
+            });
 
-        if (res.ok) {
-            alert("Berhasil disimpan!");
-            addForm.reset();
-            loadAdminData(rawData.kategori);
-        } else {
-            alert("Gagal! Cek Password Admin.");
+            if (res.ok) {
+                alert("Data berhasil disimpan!");
+                addForm.reset();
+                loadAdminData(rawData.kategori);
+            } else {
+                alert("Gagal menyimpan. Pastikan kredensial admin valid.");
+            }
+        } catch (err) {
+            alert("Terjadi kesalahan koneksi.");
         }
     });
 }
 
 window.deleteSchedule = async function(id, category) {
     if(!confirm("Hapus jadwal ini?")) return;
-    await fetch(`/api/schedule?id=${id}&category=${category}`, {
-        method: 'DELETE', headers: { 'x-admin-password': adminPassword }
-    });
-    loadAdminData(category);
+
+    if (!adminPassword) {
+        alert("Sesi habis, silakan login ulang.");
+        location.reload();
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/schedule?id=${id}&category=${category}`, {
+            method: 'DELETE', 
+            headers: { 'x-admin-password': adminPassword } // Kirim password tersimpan
+        });
+        
+        if(res.ok) {
+            loadAdminData(category);
+        } else {
+            alert("Gagal menghapus data. Kredensial tidak valid.");
+        }
+    } catch(e) { 
+        alert("Gagal koneksi."); 
+    }
 }
 
 // ==========================================
-// 5. WIDGET BERANDA (AGENDA HARI INI)
+// 5. WIDGET BERANDA & TOGGLE
 // ==========================================
 
 function updateClock() {
@@ -257,11 +329,15 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
+    // Tampilkan pesan loading di container
+    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-sm">Memuat data...</div>`;
+
     // Ambil Tanggal & Hari Lokal (WIB)
     const now = new Date();
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()]; 
-    const tglIni = now.toLocaleDateString('en-CA'); // Format YYYY-MM-DD
+    // Menggunakan toISOString() lalu di-slice untuk format YYYY-MM-DD
+    const tglIni = now.toISOString().split('T')[0]; 
 
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
@@ -278,8 +354,8 @@ async function loadTodaySchedule() {
 
         // Filter data yang cocok dengan hari ini
         const combinedToday = [
-            ...uts.filter(u => u.tanggal === tglIni).map(i => ({...i, c: 'orange', label: 'UTS'})),
-            ...uas.filter(u => u.tanggal === tglIni).map(i => ({...i, c: 'purple', label: 'UAS'})),
+            ...uts.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uts') === 'true').map(i => ({...i, c: 'orange', label: 'UTS'})),
+            ...uas.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uas') === 'true').map(i => ({...i, c: 'purple', label: 'UAS'})),
             ...daily.filter(d => d.hari === hariIni).map(i => ({...i, c: 'blue', label: 'KULIAH'})),
             ...personal.filter(p => p.tanggal === tglIni).map(i => ({...i, c: 'green', label: 'AGENDA'}))
         ];
@@ -287,8 +363,8 @@ async function loadTodaySchedule() {
         if (combinedToday.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-10 text-gray-300">
-                    <i class="fas fa-mug-hot text-5xl mb-3 animate-bounce"></i>
-                    <p>Tidak ada agenda untuk hari ini.</p>
+                    <i class="fas fa-mug-hot text-5xl mb-3"></i>
+                    <p>Tidak ada agenda hari ini. Santai!</p>
                 </div>`;
             return;
         }
@@ -297,7 +373,7 @@ async function loadTodaySchedule() {
         container.innerHTML = combinedToday.map(item => rowWidget(item)).join('');
 
     } catch (e) {
-        container.innerHTML = '<p class="text-red-500">Gagal memuat data dari Firebase.</p>';
+        container.innerHTML = '<p class="text-red-500 text-center py-5">Gagal memuat data jadwal.</p>';
     }
 }
 
@@ -312,7 +388,7 @@ function rowWidget(i) {
     const detail = (i.c === 'green') ? (i.keterangan || '-') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
 
     return `
-    <div class="${colors} border-l-8 p-5 rounded-xl mb-4 shadow-sm hover:shadow-md transition">
+    <div class="${colors} border-l-8 p-5 rounded-xl mb-4 shadow-sm">
         <div class="flex justify-between items-start">
             <div>
                 <span class="text-[10px] font-bold uppercase tracking-widest opacity-70">${i.label}</span>
@@ -325,8 +401,24 @@ function rowWidget(i) {
 }
 
 function checkToggles() {
-    const btnUts = document.getElementById('btn-menu-uts');
-    const btnUas = document.getElementById('btn-menu-uas');
-    if(btnUts) btnUts.style.display = localStorage.getItem('show_uts') === 'true' ? 'flex' : 'none';
-    if(btnUas) btnUas.style.display = localStorage.getItem('show_uas') === 'true' ? 'flex' : 'none';
+    const tUts = document.getElementById('toggle-uts');
+    const tUas = document.getElementById('toggle-uas');
+    
+    // Set status awal
+    if(tUts) {
+        tUts.checked = localStorage.getItem('show_uts') === 'true';
+        tUts.addEventListener('change', e => {
+            localStorage.setItem('show_uts', e.target.checked);
+            // Muat ulang jadwal hari ini agar perubahan terlihat
+            loadTodaySchedule(); 
+        });
+    }
+    if(tUas) {
+        tUas.checked = localStorage.getItem('show_uas') === 'true';
+        tUas.addEventListener('change', e => {
+            localStorage.setItem('show_uas', e.target.checked);
+            // Muat ulang jadwal hari ini agar perubahan terlihat
+            loadTodaySchedule(); 
+        });
+    }
 }
