@@ -32,6 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     checkToggles();
 });
 
+// app.js (Hanya bagian LOGIC LOGIN ADMIN yang diubah)
+
+// ... (kode di atas tidak diubah)
+
 // ==========================================
 // 1. LOGIC LOGIN ADMIN (VERIFIKASI KE API BACKEND)
 // ==========================================
@@ -57,9 +61,9 @@ if (loginBtn) {
         loginBtn.disabled = true;
 
         try {
-            // ** LANGKAH BARU: Verifikasi ke API Backend **
-            // API Backend Anda bertanggung jawab memverifikasi Email/Pass ini ke Firebase Auth
-            const res = await fetch('/api/schedule.js', {
+            // ** PERBAIKAN: Ganti URL ke /api/login **
+            // API ini hanya memvalidasi email/password terhadap ENV.
+            const res = await fetch('/api/login', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password: pass }) 
@@ -77,7 +81,8 @@ if (loginBtn) {
             } else {
                 // LOGIN GAGAL (Status 401/403 dari API Backend)
                 const errorData = await res.json();
-                throw new Error(errorData.message || "Akses Ditolak: Kredensial Salah.");
+                // Jika errorData.message tidak ada, gunakan pesan default
+                throw new Error(errorData.message || "Akses Ditolak: Kredensial Salah."); 
             }
         } catch (err) {
             console.error("Login Gagal:", err.message);
@@ -90,17 +95,6 @@ if (loginBtn) {
     });
 }
 
-function showAdminPanel() {
-    const loginForm = document.getElementById('login-form');
-    const adminPanel = document.getElementById('admin-panel');
-
-    if(loginForm) loginForm.style.display = 'none';
-    if(adminPanel) {
-        adminPanel.style.display = 'block';
-        // Auto-load jadwal harian saat panel muncul
-        loadAdminData('daily'); 
-    }
-}
 
 // Logout
 const btnLogout = document.getElementById('btn-logout');
@@ -422,3 +416,4 @@ function checkToggles() {
         });
     }
 }
+
