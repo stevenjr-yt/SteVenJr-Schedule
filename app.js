@@ -1,10 +1,12 @@
+// File: app.js
+
 // ==========================================
 // KONFIGURASI STATE & INISIALISASI
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
 
-// --- TAMBAH FUNGSI INI ---
+// DEFINISI FUNGSI ADMIN PANEL
 function showAdminPanel() {
     const loginForm = document.getElementById('login-form');
     const adminPanel = document.getElementById('admin-panel');
@@ -24,8 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedPass = localStorage.getItem('admin_password');
 
     if (savedEmail && savedPass) {
-        // Coba validasi ulang (bisa langsung masuk tanpa cek server jika backend percaya localStorage)
-        // KITA PILIH VALIDASI SERVER RINGAN:
         adminEmail = savedEmail;
         adminPassword = savedPass;
         // Panggil fungsi untuk menampilkan panel tanpa melalui form login
@@ -44,10 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Cek Toggle Fitur (UTS/UAS)
     checkToggles();
 });
-
-// app.js (Hanya bagian LOGIC LOGIN ADMIN yang diubah)
-
-// ... (kode di atas tidak diubah)
 
 // ==========================================
 // 1. LOGIC LOGIN ADMIN (VERIFIKASI KE API BACKEND)
@@ -74,8 +70,6 @@ if (loginBtn) {
         loginBtn.disabled = true;
 
         try {
-            // ** PERBAIKAN: Ganti URL ke /api/login **
-            // API ini hanya memvalidasi email/password terhadap ENV.
             const res = await fetch('/api/login', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -83,7 +77,6 @@ if (loginBtn) {
             });
 
             if (res.ok) {
-                // LOGIN BERHASIL (Backend bilang OK)
                 adminEmail = email;
                 adminPassword = pass; 
                 localStorage.setItem('admin_email', email);
@@ -92,9 +85,7 @@ if (loginBtn) {
                 showAdminPanel();
 
             } else {
-                // LOGIN GAGAL (Status 401/403 dari API Backend)
                 const errorData = await res.json();
-                // Jika errorData.message tidak ada, gunakan pesan default
                 throw new Error(errorData.message || "Akses Ditolak: Kredensial Salah."); 
             }
         } catch (err) {
@@ -127,37 +118,41 @@ if (btnLogout) {
 // 2. HELPER FUNCTIONS
 // ==========================================
 
-// Helper untuk mengecek bentrok waktu
+function getSafeTitle(item) {
+    return item.matkul || item.nama_kegiatan || item.nama || item.keterangan || "Kegiatan";
+}
+
+// === FUNGSI BARU UNTUK CEK BENTROK WAKTU ===
 function isTimeConflict(existingWaktu, newWaktu) {
-    // Helper untuk mengubah "HH:MM" menjadi total menit dari tengah malam
     const timeToMinutes = (time) => {
         try {
+            // Mengubah "HH:MM" menjadi total menit dari tengah malam
             const [h, m] = time.split(':').map(Number);
             return h * 60 + m;
         } catch (error) {
             console.error("Format waktu salah:", time);
-            return 0; // Kembalikan 0 jika gagal parse
+            return 0; 
         }
     };
 
     try {
-        // Parsing rentang waktu yang ada
         const [existingStartStr, existingEndStr] = existingWaktu.split('-');
+        const [newStartStr, newEndStr] = newWaktu.split('-');
+
         const existingStart = timeToMinutes(existingStartStr.trim());
         const existingEnd = timeToMinutes(existingEndStr.trim());
-        
-        // Parsing rentang waktu baru
-        const [newStartStr, newEndStr] = newWaktu.split('-');
         const newStart = timeToMinutes(newStartStr.trim());
         const newEnd = timeToMinutes(newEndStr.trim());
-    
-        // Logika bentrok: Konflik terjadi jika (newStart < existingEnd) AND (newEnd > existingStart)
+
+        // Logika Bentrok: Konflik terjadi jika (newStart < existingEnd) AND (newEnd > existingStart)
         return newStart < existingEnd && newEnd > existingStart;
     } catch (error) {
-        console.error("Terjadi error saat mengecek bentrok waktu:", error);
-        return false; // Jangan anggap bentrok jika ada error
+        console.error("Error saat mengecek bentrok waktu:", error);
+        return false;
     }
 }
+// ===========================================
+
 
 // ==========================================
 // 3. LOGIC UTAMA (PUBLIC VIEW - TABEL)
@@ -167,6 +162,7 @@ window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
     const titleElement = document.getElementById('page-category-badge');
     
+    // Tampilkan status "Memuat data..." (Sama seperti yang Anda alami)
     if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400">Memuat data...</td></tr>';
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
@@ -175,6 +171,7 @@ window.loadScheduleData = async function(category) {
         const data = await response.json();
         renderTable(data, category);
     } catch (error) {
+        // Tampilkan status "Gagal koneksi server"
         if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500">Gagal koneksi server</td></tr>';
     }
 }
@@ -201,8 +198,13 @@ function renderTable(data, category) {
         const badgeColor = (item.tipe === 'Praktek') ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
         const detailText = (category === 'personal') ? (item.keterangan || '-') : (item.dosen || '-');
         
+        // CATATAN: Untuk visualisasi warna merah (jika bentrok),
+        // Logika harus ditambahkan di sini dengan membandingkan 'item' dengan semua data lainnya
+        // yang ada di array 'data'.
+        const rowClass = "hover:bg-gray-50"; // Placeholder, belum ada logika pewarnaan bentrok
+        
         tableBody.innerHTML += `
-            <tr class="hover:bg-gray-50 border-b last:border-0 transition text-sm">
+            <tr class="${rowClass} border-b last:border-0 transition text-sm">
                 <td class="p-5 align-middle">
                     <div class="font-bold text-gray-800">${item.hari || item.tanggal}</div>
                     <div class="text-xs text-blue-500 font-bold mt-1 px-2 py-1 bg-blue-50 rounded w-fit">${item.waktu}</div>
@@ -259,8 +261,13 @@ async function loadAdminData(category) {
         }
 
         data.forEach(item => {
+            // CATATAN: Untuk visualisasi warna merah (jika bentrok) di Admin Panel,
+            // Logika harus ditambahkan di sini dengan membandingkan 'item' dengan semua data lainnya
+            // yang ada di array 'data'.
+            const cardClass = 'bg-gray-50'; // Placeholder, belum ada logika pewarnaan bentrok
+            
             container.innerHTML += `
-                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                <div class="${cardClass} p-3 rounded-xl border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
                     <div class="overflow-hidden">
                         <div class="font-bold text-sm text-gray-800 truncate">${getSafeTitle(item)}</div>
                         <div class="text-xs text-gray-500 mt-0.5">${item.hari || item.tanggal} • <span class="text-blue-500 font-medium">${item.waktu}</span></div>
@@ -300,7 +307,48 @@ if (addForm) {
             keterangan: document.getElementById('keterangan').value,
         };
 
+        // ======================================
+        // === LOGIKA CEK BENTROK BARU START ===
+        // ======================================
+        
         try {
+            // 1. Ambil semua data jadwal yang sudah ada dari kategori yang sama
+            const checkRes = await fetch(`/api/schedule?category=${rawData.kategori}`);
+            if (!checkRes.ok) {
+                throw new Error("Gagal mengambil data untuk cek bentrok.");
+            }
+            const existingSchedules = await checkRes.json();
+            
+            let isConflict = false;
+            let conflictDetails = null;
+
+            // 2. Iterasi dan Cek Bentrok
+            for (const existing of existingSchedules) {
+                // Tentukan kunci perbandingan (Hari untuk daily, Tanggal untuk lainnya)
+                let keyMatch = false;
+                if (rawData.kategori === 'daily') {
+                    keyMatch = (existing.hari === rawData.hari);
+                } else {
+                    keyMatch = (existing.tanggal === rawData.tanggal);
+                }
+
+                if (keyMatch) {
+                    // Cek bentrok waktu menggunakan helper function
+                    if (isTimeConflict(existing.waktu, rawData.waktu)) {
+                        isConflict = true;
+                        conflictDetails = existing;
+                        break;
+                    }
+                }
+            }
+            
+            // 3. Handle Hasil Pengecekan
+            if (isConflict) {
+                alert(`Gagal! Jadwal bentrok dengan: ${getSafeTitle(conflictDetails)} pada ${conflictDetails.hari || conflictDetails.tanggal} pukul ${conflictDetails.waktu}.`);
+                return; // Hentikan proses simpan jika bentrok
+            }
+
+            // 4. Lanjutkan Simpan Data jika TIDAK BENTROK
             const res = await fetch('/api/schedule', {
                 method: 'POST',
                 headers: { 
@@ -318,8 +366,12 @@ if (addForm) {
                 alert("Gagal menyimpan. Pastikan kredensial admin valid.");
             }
         } catch (err) {
-            alert("Terjadi kesalahan koneksi.");
+            console.error("Kesalahan saat menambahkan jadwal:", err);
+            alert("Terjadi kesalahan koneksi atau proses cek bentrok gagal.");
         }
+        // ======================================
+        // === LOGIKA CEK BENTROK BARU END ===
+        // ======================================
     });
 }
 
@@ -371,7 +423,6 @@ async function loadTodaySchedule() {
     const now = new Date();
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()]; 
-    // Menggunakan toISOString() lalu di-slice untuk format YYYY-MM-DD
     const tglIni = now.toISOString().split('T')[0]; 
 
     try {
@@ -457,6 +508,3 @@ function checkToggles() {
         });
     }
 }
-
-
-
