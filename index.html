@@ -269,6 +269,81 @@
             rows.forEach(row => { row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none'; }); 
         }
 
+// === 4. FUNGSI TOMBOL CEK (UI TABLE) ===
+        function checkConflictsUI() {
+            const rows = Array.from(document.querySelectorAll('#schedule-table-body tr'));
+            const alertBox = document.getElementById('conflict-alert');
+            let hasConflict = false;
+
+            // 1. Reset Tampilan Dulu (Hapus warna merah lama)
+            rows.forEach(row => {
+                row.classList.remove('bg-red-50');
+                row.classList.remove('border-red-200');
+            });
+            alertBox.className = 'hidden mb-6 mx-auto max-w-lg'; // Sembunyikan alert dulu
+
+            // 2. Loop Cek Bentrok
+            for (let i = 0; i < rows.length; i++) {
+                for (let j = i + 1; j < rows.length; j++) {
+                    const rowA = rows[i];
+                    const rowB = rows[j];
+
+                    // Ambil Data dari Atribut HTML
+                    const timeA = rowA.getAttribute('data-waktu');
+                    const timeB = rowB.getAttribute('data-waktu');
+                    const dayA = rowA.getAttribute('data-hari');
+                    const dayB = rowB.getAttribute('data-hari');
+
+                    // Cek: Harus hari/tanggal yang sama
+                    if (dayA === dayB) {
+                        // Pastikan fungsi parseTimeRange sudah ada di script kamu sebelumnya
+                        const [startA, endA] = parseTimeRange(timeA);
+                        const [startB, endB] = parseTimeRange(timeB);
+
+                        // Cek Tabrakan Waktu
+                        if (startA < endB && startB < endA) {
+                            hasConflict = true;
+                            // Tandai Baris Merah
+                            rowA.classList.add('bg-red-50', 'border-red-200');
+                            rowB.classList.add('bg-red-50', 'border-red-200');
+                        }
+                    }
+                }
+            }
+
+            // 3. Tampilkan Hasil (Alert Box)
+            alertBox.classList.remove('hidden');
+            
+            if (hasConflict) {
+                // TAMPILAN MERAH (ADA BENTROK)
+                alertBox.innerHTML = `
+                    <div class="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-sm flex items-center gap-3 animate-pulse">
+                        <i class="fas fa-exclamation-triangle text-xl"></i>
+                        <div>
+                            <strong class="font-bold text-sm block">Ada Jadwal Bentrok!</strong>
+                            <span class="text-xs">Periksa baris yang ditandai merah.</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // TAMPILAN HIJAU (AMAN)
+                alertBox.innerHTML = `
+                    <div class="bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-xl shadow-sm flex items-center gap-3">
+                        <i class="fas fa-check-circle text-xl"></i>
+                        <div>
+                            <strong class="font-bold text-sm block">Aman Terkendali!</strong>
+                            <span class="text-xs">Tidak ada jadwal yang bertabrakan di daftar ini.</span>
+                        </div>
+                    </div>
+                `;
+                
+                // Hilangkan otomatis setelah 3 detik kalau aman
+                setTimeout(() => {
+                    alertBox.classList.add('hidden');
+                }, 3000);
+            }
+        }
+        
         // Jalankan saat load
         document.addEventListener('DOMContentLoaded', loadSettingsAndMenu);
         // Listener tambahan jika localstorage berubah (opsional)
@@ -276,5 +351,6 @@
     </script>
 </body>
 </html>
+
 
 
