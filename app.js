@@ -1,16 +1,15 @@
 // File: app.js
 
 // ==========================================
-// 1. GLOBAL VARIABLES
+// 1. GLOBAL VARS & INIT
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
 let currentCategory = 'daily'; 
-// Variable Global untuk menyimpan status dari Server
 let globalSettings = { show_uts: false, show_uas: false }; 
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Cek Login (Khusus Admin)
+    // 1. Cek Login
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
     if (savedEmail && savedPass) {
@@ -23,11 +22,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 3. LOAD SETTINGS DARI SERVER (WAJIB DULUAN)
-    // Kita tunggu data dari api/settings.js selesai di-download
+    // 3. SYNC SETTINGS DARI SERVER DULU (PENTING BIAR TOGGLE GA RESET)
     await fetchSettings();
 
-    // 4. Init Fitur Sesuai Halaman (Setelah settings siap)
+    // 4. Init Fitur Sesuai Halaman
     if (document.getElementById('admin-panel')) {
         initAdminFeatures();
     } else if (document.getElementById('main-dashboard')) {
@@ -35,73 +33,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- FUNGSI KOMUNIKASI KE API SETTINGS ---
+// --- API SYNC SETTINGS (FIREBASE) ---
 async function fetchSettings() {
     try {
         const res = await fetch('/api/settings');
-        if (res.ok) {
-            globalSettings = await res.json();
-            console.log("Settings Loaded:", globalSettings);
-        }
-    } catch (e) {
-        console.error("Gagal load settings:", e);
-        // Fallback ke localStorage jika server error (Backup plan)
-        globalSettings.show_uts = localStorage.getItem('show_uts') === 'true';
-        globalSettings.show_uas = localStorage.getItem('show_uas') === 'true';
-    }
+        if (res.ok) globalSettings = await res.json();
+    } catch (e) { console.error("Sync error:", e); }
 }
 
 async function saveSettings(newStatus) {
     try {
-        // Update variable lokal
-        globalSettings = { ...globalSettings, ...newStatus };
-        
-        // Simpan ke LocalStorage juga sebagai backup
-        if(newStatus.show_uts !== undefined) localStorage.setItem('show_uts', newStatus.show_uts);
-        if(newStatus.show_uas !== undefined) localStorage.setItem('show_uas', newStatus.show_uas);
-
-        // Kirim ke Server
+        globalSettings = { ...globalSettings, ...newStatus }; 
         await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(globalSettings)
         });
-        console.log("Settings Saved to Firebase");
-    } catch (e) { 
-        console.error("Gagal save settings:", e);
-    }
+    } catch (e) { alert("Gagal simpan setting!"); }
 }
 
 function updateClock() {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    
-    // Format Index: 08.10.20
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+    const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
-    if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
-    if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Format Admin: 08:10:20 (Realtime Kecil)
     const adminClock = document.getElementById('admin-realtime-clock');
-    if(adminClock) adminClock.innerText = `${h}:${m}:${s}`;
+
+    if(clockEl) clockEl.innerText = timeStr.replace(/:/g, '.'); // 08.10.20
+    if(dateEl) dateEl.innerText = dateStr;
+    if(adminClock) adminClock.innerText = timeStr; // 08:10:20
 }
 
 // ==========================================
-// 2. LOGIC DASHBOARD (INDEX.HTML / ORANG TUA)
+// 2. LOGIC DASHBOARD (INDEX.HTML)
 // ==========================================
 function initDashboardFeatures() {
     updateDashboardMenu(); 
-    loadTodaySchedule();
+    loadTodaySchedule(); 
     
-    // Auto Refresh Settings tiap 5 detik
+    // Auto Refresh setiap 5 detik (Cek update dari Admin)
     setInterval(async () => {
         await fetchSettings();
         updateDashboardMenu();
-        loadTodaySchedule();
-    }, 5000); 
+        loadTodaySchedule(); 
+    }, 5000);
 }
 
 function updateDashboardMenu() {
@@ -111,7 +88,7 @@ function updateDashboardMenu() {
 
     if(!container) return;
 
-    // Reset Hidden
+    // Reset
     utsBtn.classList.add('hidden');
     uasBtn.classList.add('hidden');
     container.classList.add('hidden');
@@ -119,6 +96,7 @@ function updateDashboardMenu() {
     // Cek Global Settings
     if (globalSettings.show_uts || globalSettings.show_uas) {
         container.classList.remove('hidden');
+        // Tambahkan flex agar layout benar
         container.classList.add('flex');
         
         if (globalSettings.show_uts) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
@@ -126,52 +104,43 @@ function updateDashboardMenu() {
     }
 }
 
-// --- FUNGSI INI YG HILANG KEMARIN (Daftar Jadwal Lengkap) ---
+// --- FUNGSI LOAD SCHEDULE DATA (LOGIKA LAMA DIKEMBALIKAN) ---
+// Ini dipakai saat klik tombol "Jadwal Kuliah" di Index
 window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
-    const titleElement = document.getElementById('page-category-badge');
+    const titleBadge = document.getElementById('page-category-badge');
     
-    // Tampilkan status loading
     if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
-    if(titleElement) titleElement.innerText = category.toUpperCase();
+    if(titleBadge) titleBadge.innerText = category.toUpperCase();
 
     try {
-        const response = await fetch(`/api/schedule?category=${category}`);
-        const data = await response.json();
+        // Panggil API persis seperti kode lama
+        const res = await fetch(`/api/schedule?category=${category}`);
+        const data = await res.json();
         
-        // Render Table (Fungsi renderTable dipanggil di sini)
-        renderTable(data, category); 
-    } catch (error) {
-        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
-    }
-}
+        if(!tableBody) return;
+        tableBody.innerHTML = '';
 
-function renderTable(data, category) {
-    const tableBody = document.getElementById('schedule-table-body');
-    if (!tableBody) return;
-    tableBody.innerHTML = ''; 
+        if (data.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Data Kosong</td></tr>`;
+            return;
+        }
 
-    if (data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Jadwal Kosong</td></tr>`;
-        return;
-    }
+        // Sorting Logika Lama
+        if (category === 'daily') {
+            const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
+            data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
+        } else {
+            data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
+        }
 
-    // Sorting Logika
-    if (category === 'daily') {
-        const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
-        data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
-    } else {
-        data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
-    }
+        // Render Row
+        data.forEach(item => {
+            const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
+            const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
+            const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
 
-    data.forEach(item => {
-        const badgeColor = (item.tipe === 'Praktek') ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
-        const detailText = (category === 'personal') ? (item.keterangan || '-') : (item.dosen || '-');
-        
-        // PENTING: Gunakan getSafeTitle helper
-        const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
-
-        tableBody.innerHTML += `
+            tableBody.innerHTML += `
             <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm">
                 <td class="p-4 align-top w-24">
                     <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
@@ -179,22 +148,26 @@ function renderTable(data, category) {
                 </td>
                 <td class="p-4 align-top">
                     <div class="font-bold text-gray-800 text-sm">${title}</div>
-                    <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${item.ruangan || '-'} • ${item.kelas || '-'}</div>
+                    <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div>
                 </td>
                 <td class="p-4 align-top text-right">
                     <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
                 </td>
             </tr>`;
-    });
-}
-// -------------------------------------------------------------
+        });
 
+    } catch (error) {
+        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
+    }
+}
+
+// --- LOAD JADWAL HARI INI (TIMELINE) ---
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
+    // Tanggal Lokal
     const now = new Date();
-    // PERBAIKAN FORMAT TANGGAL LOKAL (PENTING)
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -202,7 +175,7 @@ async function loadTodaySchedule() {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()];
 
-    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing data...</div>`;
+    // container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
 
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
@@ -217,14 +190,14 @@ async function loadTodaySchedule() {
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Logic Filter KEMBALI KE ORIGINAL YANG JALAN
+        // Logic Filter: Cek Tanggal ATAU Hari
         const isToday = (item) => {
             if (item.tanggal && item.tanggal === tglIni) return true;
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
             return false;
         };
 
-        // FILTER UTAMA: Gunakan globalSettings dari Server
+        // GABUNGKAN DATA (Menggunakan globalSettings untuk UTS/UAS)
         const list = [
             ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
             ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
@@ -236,25 +209,19 @@ async function loadTodaySchedule() {
         calculateSimpleBusyness(list);
 
         if (list.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-8 text-gray-300">
-                    <i class="fas fa-mug-hot text-2xl mb-2"></i>
-                    <p class="text-xs">Hari ini kosong. Santai!</p>
-                </div>`;
+            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
             return;
         }
 
         container.innerHTML = list.map(item => {
-             // Cek custom renderer
+             // Cek custom renderer di HTML
              if(window.rowWidget) return window.rowWidget(item, item.c);
-             // Fallback renderer
-             const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
-             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${title}</div>`;
+             // Fallback
+             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
         }).join('');
 
     } catch (e) {
         console.error("Load Error:", e);
-        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
     }
 }
 
@@ -282,16 +249,9 @@ function calculateSimpleBusyness(items) {
         text.innerText = `${percent}%`;
         bar.style.width = `${percent}%`;
         
-        if (percent > 80) {
-            bar.className = "h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.5)]";
-            if(advice) advice.innerText = "Sangat Sibuk! Istirahatlah.";
-        } else if (percent > 40) {
-            bar.className = "h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
-            if(advice) advice.innerText = "Produktif. Tetap fokus!";
-        } else {
-            bar.className = "h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]";
-            if(advice) advice.innerText = "Hari yang santai.";
-        }
+        if (percent > 80) { bar.className = "h-full bg-red-500 transition-all duration-1000"; if(advice) advice.innerText = "Sangat Sibuk!"; } 
+        else if (percent > 40) { bar.className = "h-full bg-indigo-500 transition-all duration-1000"; if(advice) advice.innerText = "Produktif."; } 
+        else { bar.className = "h-full bg-green-500 transition-all duration-1000"; if(advice) advice.innerText = "Santai."; }
     }
 }
 
@@ -306,15 +266,17 @@ function showAdminPanel() {
 }
 
 function initAdminFeatures() {
-    loadAdminData('daily'); 
+    loadAdminData('daily'); // Load default tab
     loadDailyChecklist(); 
     initHealthTracker();
-    initAdminToggles(); // Init Tombol dengan data Server
+    initAdminToggles(); 
 
     setInterval(() => {
         const sleepStart = localStorage.getItem('steven_sleep_start');
         const wakeTime = localStorage.getItem('steven_wake_time');
-        if (sleepStart && !wakeTime) updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+        if (sleepStart && !wakeTime) {
+            updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+        }
     }, 1000);
 }
 
@@ -323,24 +285,14 @@ function initAdminToggles() {
     const tUts = document.getElementById('toggle-uts');
     const tUas = document.getElementById('toggle-uas');
 
-    // 1. Set Visual Awal dari Data Server (yg sudah di-fetch di awal)
     if (tUts) tUts.checked = globalSettings.show_uts;
     if (tUas) tUas.checked = globalSettings.show_uas;
 
-    // 2. Listener: Kalau diklik, KIRIM KE SERVER
-    if (tUts) {
-        tUts.addEventListener('change', (e) => {
-            saveSettings({ show_uts: e.target.checked });
-        });
-    }
-    if (tUas) {
-        tUas.addEventListener('change', (e) => {
-            saveSettings({ show_uas: e.target.checked });
-        });
-    }
+    if (tUts) tUts.addEventListener('change', (e) => saveSettings({ show_uts: e.target.checked }));
+    if (tUas) tUas.addEventListener('change', (e) => saveSettings({ show_uas: e.target.checked }));
 }
 
-// --- CRUD HELPER (DIKEMBALIKAN KE LOGIKA ASLI) ---
+// --- CRUD HELPER (DB ADMIN) ---
 window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
@@ -365,7 +317,6 @@ async function loadAdminData(category) {
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
         
         data.forEach(item => {
-            // PENTING: getSafeTitle
             const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
             container.innerHTML += `
                 <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
@@ -384,8 +335,6 @@ if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!adminPassword) { alert("Login dulu!"); return; }
-        
-        // PENTING: LOGIKA INPUT BARU
         const rawData = {
             kategori: document.getElementById('kategori').value,
             matkul: document.getElementById('matkul').value,
@@ -399,7 +348,6 @@ if (addForm) {
             tipe: document.getElementById('tipe').value,
             keterangan: document.getElementById('keterangan').value,
         };
-        // Clean Hidden
         if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = "";
         if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
 
@@ -424,7 +372,7 @@ window.deleteSchedule = async function(id, category) {
     } catch(e) { alert("Error koneksi."); }
 }
 
-// --- HEALTH TRACKER (ADMIN ONLY) ---
+// --- HEALTH TRACKER (SAMA SEPERTI SEBELUMNYA) ---
 function initHealthTracker() {
     calculateBMI();
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
@@ -526,10 +474,7 @@ async function loadDailyChecklist() {
         container.innerHTML = "";
         list.forEach((item, index) => {
             const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-            
-            // PENTING: getSafeTitle
-            const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
-            
+            const title = item.matkul || item.nama_kegiatan || "Kegiatan";
             container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
         });
         updateEnergyFromFood();
