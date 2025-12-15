@@ -1,7 +1,7 @@
 // File: app.js
 
 // ==========================================
-// 1. GLOBAL VARS
+// 1. GLOBAL VARS & INIT
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
@@ -182,6 +182,8 @@ async function loadTodaySchedule() {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()];
 
+    // container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
+
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
             fetch('/api/schedule?category=daily'),
@@ -190,7 +192,6 @@ async function loadTodaySchedule() {
             fetch('/api/schedule?category=personal')
         ]);
 
-        // Cek response status
         const daily = resDaily.ok ? await resDaily.json() : [];
         const uts = resUts.ok ? await resUts.json() : [];
         const uas = resUas.ok ? await resUas.json() : [];
@@ -203,23 +204,23 @@ async function loadTodaySchedule() {
             return false;
         };
 
-        // GABUNGKAN
-        const list = [
+        // GABUNGKAN (Pakai Global Settings)
+        const combinedToday = [
             ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
             ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
             ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
             ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
         ];
 
-        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-        calculateSimpleBusyness(list);
+        combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+        calculateSimpleBusyness(combinedToday); // Update Bar Index
 
-        if (list.length === 0) {
+        if (combinedToday.length === 0) {
             container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
             return;
         }
 
-        container.innerHTML = list.map(item => {
+        container.innerHTML = combinedToday.map(item => {
              if(window.rowWidget) return window.rowWidget(item, item.c);
              return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
         }).join('');
@@ -303,7 +304,6 @@ window.switchTab = function(targetId, btn) {
         b.className = "tab-btn px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
     });
     btn.className = "tab-btn active px-3 py-1.5 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
-    
     currentCategory = targetId.replace('list-', '');
     loadAdminData(currentCategory);
 }
@@ -477,8 +477,7 @@ async function loadDailyChecklist() {
         container.innerHTML = "";
         list.forEach((item, index) => {
             const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-            const title = item.matkul || item.nama_kegiatan || "Kegiatan";
-            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
+            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${item.matkul || item.nama_kegiatan}</span></div>`;
         });
         updateEnergyFromFood();
     } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Error</p>'; }
