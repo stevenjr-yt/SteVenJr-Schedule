@@ -4,248 +4,204 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SteVenJr Schedule</title>
+    <title>SteVenJr OS - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { sans: ['Poppins', 'sans-serif'] },
-                    colors: { primary: '#4a90e2' }
+                    colors: { primary: '#4f46e5' } /* Indigo-600 */
                 }
             }
         }
     </script>
     <style>
-        .animate-bounce-slow { animation: bounce 3s infinite; }
-        /* Biar scrollbar di widget kalo kepanjangan tetep rapi */
+        body { background-color: #f8fafc; }
         .widget-scroll::-webkit-scrollbar { width: 4px; }
         .widget-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .glass-card { background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 1.5rem; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
+<body class="text-gray-800 min-h-screen flex flex-col items-center py-8 relative">
 
     <div class="absolute top-5 right-5 z-50">
-        <a href="admin.html" class="block w-12 h-12 rounded-full bg-gray-200 hover:bg-primary transition shadow-md flex items-center justify-center group overflow-hidden border-2 border-white cursor-pointer" title="Login Admin">
-            <i class="fas fa-user text-gray-500 group-hover:text-white text-xl"></i>
+        <a href="admin.html" class="block w-10 h-10 rounded-full bg-white hover:bg-indigo-50 text-indigo-600 transition shadow-md flex items-center justify-center border border-indigo-100" title="Login Admin">
+            <i class="fas fa-cog"></i>
         </a>
     </div>
 
-    <div id="main-dashboard" class="w-[95%] max-w-2xl bg-white p-8 rounded-3xl shadow-xl text-center transition-all duration-300 mt-5 border-t-8 border-primary">
-        <h1 class="text-3xl font-bold text-primary mb-1 tracking-tight">SteVenJr Schedule</h1>
-        <p class="text-gray-400 text-sm mb-6 font-medium">Dashboard Perkuliahan & Aktivitas</p>
+    <div id="main-dashboard" class="w-[95%] max-w-md transition-all duration-300">
         
-        <div class="bg-gray-50 rounded-2xl p-5 mb-8 border border-gray-100 shadow-inner">
-            <p id="current-date" class="text-gray-500 font-bold uppercase tracking-widest text-xs mb-1">...</p>
-            <div id="digital-clock" class="text-6xl font-bold text-gray-800 tracking-tighter">00:00:00</div>
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-indigo-900 tracking-tight">SteVenJr <span class="text-indigo-500">OS</span></h1>
+            <p class="text-xs text-gray-400 font-medium mb-6">Personal Life Assistant</p>
+            
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-indigo-50 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                <p id="current-date" class="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-1">...</p>
+                <div id="digital-clock" class="text-5xl font-black text-gray-800 tracking-tighter">00.00</div>
+            </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-5 mb-8 border border-gray-100 shadow-sm relative overflow-hidden">
-            <div class="flex justify-between items-end mb-2">
-                <div>
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Status Harian</h3>
-                    <p id="busy-status-text" class="text-xl font-bold text-gray-800">Menghitung...</p>
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-5 mb-6 text-white shadow-lg relative overflow-hidden">
+            <div class="flex justify-between items-center mb-3 relative z-10">
+                <div class="flex items-center gap-2">
+                    <div class="bg-white/10 p-1.5 rounded-lg"><i class="fas fa-bolt text-yellow-400 text-xs"></i></div>
+                    <span class="text-xs font-bold text-slate-200">Body Battery</span>
                 </div>
-                <div class="text-right">
-                    <span id="total-hours-text" class="text-2xl font-bold text-primary">0</span>
-                    <span class="text-xs text-gray-400 font-medium block">Jam Total</span>
-                </div>
+                <span id="energy-level" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-400">--%</span>
             </div>
             
-            <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden mt-2">
-                <div id="busy-progress-bar" class="h-full rounded-full transition-all duration-1000 ease-out" style="width: 0%; background-color: #cbd5e1;"></div>
+            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden relative z-10">
+                <div id="energy-bar" class="h-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-1000" style="width: 0%"></div>
             </div>
+            <p class="text-[10px] text-slate-400 mt-2 text-center italic opacity-80">"Data energi dihitung dari durasi tidur & asupan."</p>
             
-            <p id="busy-advice" class="text-xs text-gray-500 mt-3 italic text-center">"Memuat data..."</p>
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
         </div>
 
-        <div class="grid grid-cols-1 gap-3 mb-10">
+        <div class="grid grid-cols-1 gap-3 mb-8">
             <div id="exam-buttons-container" class="flex gap-3 hidden">
-                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm">
+                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-500 text-white py-3 rounded-2xl font-bold hover:shadow-lg transition items-center justify-center gap-2 text-sm">
                     <i class="fas fa-file-alt"></i> UTS
                 </button>
-                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm">
+                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 rounded-2xl font-bold hover:shadow-lg transition items-center justify-center gap-2 text-sm">
                     <i class="fas fa-graduation-cap"></i> UAS
                 </button>
             </div>
             
-            <button onclick="switchView('daily')" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition flex items-center justify-center gap-3 text-md shadow-blue-100">
-                <i class="fas fa-university"></i> Jadwal Kuliah Harian
+            <button onclick="switchView('daily')" class="bg-white text-indigo-600 border border-indigo-100 py-4 rounded-2xl font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2 text-sm shadow-sm group">
+                <div class="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg group-hover:bg-white transition"><i class="fas fa-university text-xs"></i></div>
+                Jadwal Kuliah
             </button>
             
-            <button onclick="switchView('personal')" class="bg-white text-gray-700 border-2 border-gray-100 py-4 rounded-xl font-bold hover:bg-gray-50 hover:border-green-200 transition flex items-center justify-center gap-3 text-md">
-                <i class="fas fa-calendar-check text-green-500"></i> Jadwal Pribadi Saya
+            <button onclick="switchView('personal')" class="bg-white text-gray-600 border border-gray-100 py-4 rounded-2xl font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2 text-sm shadow-sm group">
+                <div class="bg-gray-100 text-gray-500 p-1.5 rounded-lg group-hover:bg-white transition"><i class="fas fa-user text-xs"></i></div>
+                Agenda Pribadi
             </button>
         </div>
 
-        <div class="border-t pt-6 text-left">
-            <h2 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
-                <i class="fas fa-bell text-yellow-500"></i> Agenda Hari Ini
-            </h2>
-            <div id="today-schedule-container" class="space-y-4 min-h-[100px] widget-scroll">
-                <p class="text-center text-gray-400 text-sm italic">Memuat data...</p>
+        <div class="text-left">
+            <h2 class="text-sm font-bold mb-4 text-gray-400 uppercase tracking-wider ml-1">Timeline Hari Ini</h2>
+            <div id="today-schedule-container" class="space-y-3 min-h-[100px]">
+                <p class="text-center text-gray-400 text-xs py-5">Memuat data...</p>
             </div>
         </div>
     </div>
 
-    <div id="schedule-view" class="hidden w-[98%] max-w-6xl mt-5 animate-fade-in-up pb-20">
-        <header class="bg-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b-4 border-blue-500">
-            <div>
-                <h1 id="page-title" class="text-3xl font-bold text-gray-800">Jadwal</h1>
-                <span id="page-category-badge" class="text-xs font-bold px-3 py-1 rounded bg-blue-100 text-blue-600 mt-1 inline-block uppercase">...</span>
+    <div id="schedule-view" class="hidden w-[95%] max-w-4xl mt-5 pb-20 animate-fade-in-up">
+        <header class="bg-white p-5 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border border-gray-100 sticky top-5 z-40">
+            <div class="text-center md:text-left">
+                <h1 class="text-xl font-bold text-gray-800">Daftar Jadwal</h1>
+                <span id="page-category-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 inline-block uppercase mt-1">...</span>
             </div>
             
-            <div class="flex flex-wrap gap-3 items-center w-full md:w-auto">
-                <div class="relative flex-grow md:flex-grow-0">
-                    <input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari Mata Kuliah..." class="pl-10 pr-4 py-3 border rounded-xl focus:outline-blue-500 w-full md:w-64 shadow-sm text-sm">
-                    <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+            <div class="flex gap-2 w-full md:w-auto">
+                <div class="relative flex-grow">
+                    <input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari..." class="pl-9 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 w-full text-xs">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
                 </div>
-
-                <button onclick="checkConflictsUI()" class="bg-yellow-100 text-yellow-700 px-5 py-3 rounded-xl font-bold hover:bg-yellow-200 transition flex items-center gap-2 text-sm">
-                    <i class="fas fa-exclamation-triangle"></i> Cek Bentrok
-                </button>
-
-                <button onclick="location.reload()" class="bg-gray-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-900 transition flex items-center gap-2 text-sm shadow-lg">
-                    <i class="fas fa-arrow-left"></i> Kembali
+                <button onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition text-xs shadow-lg">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
         </header>
 
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[900px] text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b">
-                            <th class="p-5 font-bold">Waktu & Hari</th>
-                            <th class="p-5 font-bold">Kegiatan / Matkul</th>
-                            <th class="p-5 font-bold">Tempat & Detail</th>
-                            <th class="p-5 font-bold">Tipe</th>
-                            <th class="p-5 font-bold">Pengajar / Ket</th>
-                        </tr>
-                    </thead>
-                    <tbody id="schedule-table-body" class="divide-y divide-gray-100 text-gray-700 text-sm">
-                        </tbody>
+                <table class="w-full text-left border-collapse">
+                    <tbody id="schedule-table-body" class="divide-y divide-gray-50 text-gray-600 text-sm"></tbody>
                 </table>
             </div>
         </div>
-        
-        <p id="conflict-alert" class="hidden mt-6 px-6 py-4 rounded-xl relative text-center font-bold border-2 text-lg shadow-md transition-all"></p>
     </div>
 
     <script src="app.js"></script>
     
     <script>
-        // ==========================================
-        // 1. LOGIC TOGGLE MENU TOMBOL (PERBAIKAN)
-        // ==========================================
+        // === LOGIC TAMPILAN KHUSUS FRONTEND ===
+
+        // 1. Update Tombol UTS/UAS (Baca dari LocalStorage yang diset Admin)
         function updateDashboardMenu() {
             const utsBtn = document.getElementById('btn-menu-uts');
             const uasBtn = document.getElementById('btn-menu-uas');
             const container = document.getElementById('exam-buttons-container');
 
-            // Ambil status dari LocalStorage (disimpan oleh Admin Panel)
             const showUts = localStorage.getItem('show_uts') === 'true';
             const showUas = localStorage.getItem('show_uas') === 'true';
 
-            // Reset dulu (sembunyikan semua)
             if (utsBtn) utsBtn.classList.add('hidden');
             if (uasBtn) uasBtn.classList.add('hidden');
             if (container) container.classList.add('hidden');
 
-            // Cek kondisi
-            if (utsBtn && uasBtn && container) {
-                // Tampilkan container jika salah satu aktif
-                if (showUts || showUas) {
-                    container.classList.remove('hidden');
-                }
-
-                // Tampilkan tombol UTS
-                if (showUts) {
-                    utsBtn.classList.remove('hidden');
-                    utsBtn.classList.add('flex'); // Pastikan display flex aktif
-                }
-
-                // Tampilkan tombol UAS
-                if (showUas) {
-                    uasBtn.classList.remove('hidden');
-                    uasBtn.classList.add('flex'); // Pastikan display flex aktif
-                }
+            if (showUts || showUas) {
+                if(container) container.classList.remove('hidden');
+                if (showUts && utsBtn) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
+                if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
             }
         }
 
-        // Jalankan saat halaman dimuat
+        // Init Menu
         document.addEventListener('DOMContentLoaded', updateDashboardMenu);
-
-        // Jalankan saat ada perubahan di tab Admin (Auto-Sync)
         window.addEventListener('storage', (event) => {
-            if (event.key === 'show_uts' || event.key === 'show_uas') {
-                updateDashboardMenu();
-            }
+            if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu();
         });
 
-
-        // ==========================================
-        // 2. LOGIC CUSTOM WIDGET BESAR
-        // ==========================================
-        
+        // 2. Logic Widget Row (Timeline Style)
         function rowWidget(i, c) {
-            // Tentukan Warna Border & Background
             let colors = {
-                'orange': 'border-orange-500 bg-orange-50 text-orange-900',
-                'purple': 'border-purple-500 bg-purple-50 text-purple-900',
-                'blue':   'border-blue-500 bg-blue-50 text-blue-900',
-                'green':  'border-green-500 bg-green-50 text-green-900'
-            }[c];
+                'orange': 'border-orange-500 bg-orange-50/50 text-orange-900',
+                'purple': 'border-purple-500 bg-purple-50/50 text-purple-900',
+                'blue':   'border-indigo-500 bg-indigo-50/50 text-indigo-900',
+                'green':  'border-emerald-500 bg-emerald-50/50 text-emerald-900'
+            }[c] || 'border-gray-500 bg-gray-50 text-gray-900';
 
-            // Detail Logic
-            let detailUtama = i.ruangan || 'Online / TBD';
-            let detailTambahan = '';
+            let detail = (c === 'green') ? (i.keterangan || 'Agenda Pribadi') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
+            let icon = (c === 'green') ? 'fa-user' : 'fa-book';
 
-            if (c === 'green') { // Personal
-                detailTambahan = i.keterangan || '-';
-            } else { // Akademik (UTS/UAS/Daily)
-                let kelas = i.kelas ? `(${i.kelas})` : '';
-                let dosen = i.dosen ? `• ${i.dosen}` : '';
-                detailTambahan = `${kelas} ${dosen}`;
-            }
-
-            // HTML WIDGET
+            // HTML Timeline Card
             return `
-            <div class="${colors} border-l-8 p-5 rounded-xl mb-4 shadow-sm hover:shadow-md transition relative overflow-hidden group">
-                <div class="flex justify-between items-start">
-                    <div class="flex-1 pr-4">
-                        <h4 class="font-extrabold text-lg leading-tight mb-2">${i.matkul || i.nama_kegiatan || getSafeTitle(i)}</h4>
-                        
-                        <div class="text-sm opacity-80 space-y-1">
-                            <p class="flex items-center gap-2 font-semibold">
-                                <i class="fas fa-map-marker-alt w-4 text-center"></i> 
-                                ${detailUtama}
-                            </p>
-                            <p class="flex items-center gap-2 text-xs italic">
-                                <i class="fas fa-info-circle w-4 text-center"></i> 
-                                ${detailTambahan}
-                            </p>
-                        </div>
-                    </div>
+            <div class="relative pl-4 group">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-100 rounded-full group-last:bottom-auto group-last:h-full"></div>
+                <div class="absolute left-[-3px] top-6 w-2.5 h-2.5 rounded-full border-2 border-white ${c === 'green' ? 'bg-emerald-400' : 'bg-indigo-400'} ring-2 ring-gray-100"></div>
 
-                    <div class="flex flex-col items-end">
-                        <span class="bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm border border-black/5 whitespace-nowrap">
-                            ${i.waktu}
-                        </span>
+                <div class="${colors} border-l-0 p-4 rounded-2xl mb-2 shadow-sm relative overflow-hidden transition hover:-translate-y-1">
+                    <div class="flex justify-between items-start relative z-10">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1 block">${i.type || i.label || 'KEGIATAN'}</span>
+                            <h4 class="font-bold text-base leading-tight mb-1 text-gray-800">${i.matkul || i.nama_kegiatan || 'No Title'}</h4>
+                            <p class="text-xs opacity-70 flex items-center gap-1"><i class="fas ${icon} text-[10px]"></i> ${detail}</p>
+                        </div>
+                        <div class="text-right">
+                             <div class="bg-white/60 backdrop-blur px-2 py-1 rounded-lg text-xs font-bold shadow-sm border border-white/20 whitespace-nowrap">
+                                ${i.waktu}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>`;
         }
 
-        // --- Helper View ---
+        // 3. Init Health Display (Baca Energi dari app.js logic)
+        // Fungsi ini akan dipanggil otomatis oleh app.js karena kita pakai ID yang sama
+        // Tapi kita tambah listener biar aman
+        setInterval(() => {
+            // Kita coba "pancing" update energi jika user baru buka halaman
+            // Logic perhitungan ada di app.js, di sini kita hanya menyediakan ID container: 'energy-bar' & 'energy-level'
+            if(window.initHealthTracker) window.initHealthTracker(); 
+        }, 5000);
+
+        // Helper Switch View
         function switchView(type) {
             document.getElementById('main-dashboard').style.display = 'none';
             document.getElementById('schedule-view').style.display = 'block';
             window.scrollTo(0,0);
             if(window.loadScheduleData) window.loadScheduleData(type);
         }
+        
         function searchSchedule() {
             const input = document.getElementById('searchInput').value.toLowerCase();
             const rows = document.querySelectorAll('#schedule-table-body tr');
@@ -256,5 +212,3 @@
     </script>
 </body>
 </html>
-
-
