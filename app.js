@@ -274,28 +274,32 @@ function initAdminFeatures() {
     setInterval(() => { const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); if (s && !w) updateSleepDurationRealtime(new Date(parseInt(s))); }, 1000); 
 }
 
-// --- PERBAIKAN TOGGLE UTS/UAS (LOGIKA SATU-SATU) ---
+// --- LOGIKA BEBAS (INDEPENDENT) ---
 function initAdminToggles() { 
     const tUts = document.getElementById('toggle-uts'); 
     const tUas = document.getElementById('toggle-uas'); 
 
-    // LOGIKA UTS: Kalau UTS diceklis, UAS harus mati
+    // Handle Toggle UTS
     if (tUts) { 
         tUts.checked = globalSettings.show_uts; 
         tUts.addEventListener('change', (e) => { 
-            const nyala = e.target.checked;
-            if(nyala && tUas) tUas.checked = false; // UI Change
-            saveSettings({ show_uts: nyala, show_uas: nyala ? false : tUas.checked }); 
+            // Kirim status UTS yang baru + status UAS yang sekarang (biar UAS gak kereset)
+            saveSettings({ 
+                show_uts: e.target.checked, 
+                show_uas: tUas ? tUas.checked : globalSettings.show_uas 
+            }); 
         }); 
     } 
 
-    // LOGIKA UAS: Kalau UAS diceklis, UTS harus mati
+    // Handle Toggle UAS
     if (tUas) { 
         tUas.checked = globalSettings.show_uas; 
         tUas.addEventListener('change', (e) => { 
-            const nyala = e.target.checked;
-            if(nyala && tUts) tUts.checked = false; // UI Change
-            saveSettings({ show_uas: nyala, show_uts: nyala ? false : tUts.checked }); 
+            // Kirim status UAS yang baru + status UTS yang sekarang (biar UTS gak kereset)
+            saveSettings({ 
+                show_uas: e.target.checked, 
+                show_uts: tUts ? tUts.checked : globalSettings.show_uts 
+            }); 
         }); 
     } 
 }
@@ -454,3 +458,4 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
