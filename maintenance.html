@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance - SteVenJr OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f8fafc; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+    </style>
+</head>
+<body class="bg-slate-900 text-white h-screen flex flex-col items-center justify-center p-4 text-center overflow-hidden relative">
+    
+    <div class="absolute top-10 left-10 w-32 h-32 bg-indigo-500 rounded-full blur-[100px] opacity-20"></div>
+    <div class="absolute bottom-10 right-10 w-32 h-32 bg-orange-500 rounded-full blur-[100px] opacity-20"></div>
+
+    <div class="relative z-10 max-w-md w-full">
+        <div class="mb-8 animate-float">
+            <i class="fas fa-tools text-6xl text-orange-400 drop-shadow-lg"></i>
+        </div>
+        
+        <h1 class="text-3xl font-bold mb-2">Under Maintenance</h1>
+        <p class="text-slate-400 text-sm mb-8 leading-relaxed">
+            Sistem sedang dalam perbaikan atau pembaruan server.<br>
+            Silakan kembali lagi beberapa saat lagi.
+        </p>
+
+        <div class="bg-slate-800/50 backdrop-blur border border-slate-700 p-4 rounded-xl flex items-center gap-4 justify-center">
+            <div class="w-3 h-3 bg-yellow-500 rounded-full animate-ping"></div>
+            <span class="text-xs font-mono text-slate-300">System Status: <span class="text-yellow-400 font-bold">UPDATING</span></span>
+        </div>
+        
+        <div class="mt-8">
+            <button onclick="checkStatus()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-full text-xs font-bold transition shadow-lg shadow-indigo-500/30">
+                <i class="fas fa-sync-alt mr-2"></i> Coba Refresh
+            </button>
+        </div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            try {
+                const btn = document.querySelector('button i');
+                btn.classList.add('fa-spin');
+                
+                const res = await fetch('/api/maintenance');
+                const data = await res.json();
+                
+                if (data.is_maintenance === false) {
+                    window.location.href = 'index.html'; // Balik ke Web Utama
+                } else {
+                    setTimeout(() => btn.classList.remove('fa-spin'), 1000);
+                }
+            } catch (e) {
+                console.error("Gagal cek status");
+            }
+        }
+
+        // Auto check setiap 5 detik
+        setInterval(checkStatus, 5000);
+    </script>
+</body>
+</html>
