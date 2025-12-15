@@ -4,243 +4,202 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SteVenJr OS - Command Center</title>
+    <title>SteVenJr OS - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Poppins', sans-serif; background-color: #f1f5f9; }
+        body { font-family: 'Poppins', sans-serif; background-color: #f8fafc; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .check-anim:checked + div { text-decoration: line-through; color: #94a3b8; opacity: 0.7; }
-        
-        /* Card Styles */
-        .dashboard-card { background: white; border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); overflow: hidden; border: 1px solid #e2e8f0; }
-        .card-header { padding: 1.25rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+        .dashboard-card { background: white; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
-<body class="text-gray-800 bg-slate-100">
+<body class="text-gray-800 bg-slate-50">
 
     <div id="login-form" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white p-10 rounded-3xl shadow-xl w-full max-w-md border-t-8 border-indigo-600">
-            <div class="text-center mb-10">
-                <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
-                    <i class="fas fa-fingerprint text-3xl"></i>
-                </div>
-                <h2 class="text-3xl font-bold text-gray-800">SteVenJr OS</h2>
-                <p class="text-sm text-gray-400 mt-2">Secure Access Point</p>
+        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm border-t-4 border-indigo-600">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">SteVenJr OS</h2>
+                <p class="text-xs text-gray-400">Admin Access</p>
             </div>
             <div class="space-y-4">
-                <input type="email" id="email" placeholder="Email" class="w-full px-5 py-4 rounded-xl bg-gray-50 border focus:border-indigo-500 focus:outline-none transition text-center">
-                <input type="password" id="password" placeholder="Passkey" class="w-full px-5 py-4 rounded-xl bg-gray-50 border focus:border-indigo-500 focus:outline-none transition text-center">
-                <button id="btn-login" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:-translate-y-1">UNLOCK</button>
+                <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 rounded-xl bg-gray-50 border text-sm text-center focus:outline-none focus:border-indigo-500">
+                <input type="password" id="password" placeholder="Passkey" class="w-full px-4 py-3 rounded-xl bg-gray-50 border text-sm text-center focus:outline-none focus:border-indigo-500">
+                <button id="btn-login" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transition text-sm">UNLOCK</button>
             </div>
             <p id="login-error" class="text-red-500 text-center mt-4 hidden text-xs font-bold"></p>
         </div>
     </div>
 
     <div id="admin-panel" class="hidden min-h-screen pb-10">
-        <nav class="bg-indigo-900 text-white shadow-lg px-6 py-4 mb-8 sticky top-0 z-50">
-            <div class="max-w-[95%] mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-4">
-                    <div class="bg-white/10 p-2 rounded-lg backdrop-blur-sm"><i class="fas fa-satellite-dish text-xl"></i></div>
-                    <div>
-                        <h1 class="font-bold text-lg leading-none tracking-wide">STEVENJR <span class="text-indigo-300">OS</span></h1>
-                        <span class="text-[10px] text-indigo-300 uppercase tracking-widest">System Online</span>
-                    </div>
+        <nav class="bg-white px-6 py-4 mb-6 sticky top-0 z-50 border-b border-gray-100 shadow-sm">
+            <div class="max-w-[98%] mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 text-white p-2 rounded-lg"><i class="fas fa-robot"></i></div>
+                    <h1 class="font-bold text-lg text-gray-800">SteVenJr <span class="text-indigo-600">OS</span></h1>
                 </div>
-                <div class="flex gap-3">
-                    <a href="index.html" target="_blank" class="bg-indigo-800 hover:bg-indigo-700 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 border border-indigo-700"><i class="fas fa-globe"></i> WEB</a>
-                    <button id="btn-logout" class="bg-red-500/20 hover:bg-red-500 text-red-100 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition border border-red-500/30"><i class="fas fa-power-off"></i></button>
+                <div class="flex gap-2">
+                    <a href="index.html" target="_blank" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2"><i class="fas fa-desktop"></i> Web</a>
+                    <button id="btn-logout" class="bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-lg text-xs font-bold transition"><i class="fas fa-power-off"></i></button>
                 </div>
             </div>
         </nav>
 
         <div class="max-w-[98%] mx-auto px-2 grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <div class="lg:col-span-3 space-y-5">
-                
-                <div class="dashboard-card">
-                    <div class="card-header bg-slate-50 border-b border-slate-100">
-                        <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Mode Ujian</span>
-                        <i class="fas fa-toggle-on text-indigo-500"></i>
-                    </div>
-                    <div class="p-5 space-y-4">
+            <div class="lg:col-span-3 space-y-4">
+                <div class="dashboard-card p-5">
+                    <div class="space-y-4">
                         <div class="flex justify-between items-center">
-                            <span class="text-sm font-semibold text-gray-700">Mode UTS</span>
+                            <span class="text-sm font-semibold text-gray-600">Mode UTS</span>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-uts" class="sr-only peer"><div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div></label>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm font-semibold text-gray-700">Mode UAS</span>
+                            <span class="text-sm font-semibold text-gray-600">Mode UAS</span>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-uas" class="sr-only peer"><div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div></label>
                         </div>
                     </div>
                 </div>
 
-                <div class="dashboard-card">
-                    <div class="card-header bg-indigo-600 text-white">
-                        <span class="text-sm"><i class="fas fa-plus-circle mr-2"></i> Input Jadwal</span>
-                    </div>
-                    <div class="p-5">
-                        <form id="add-schedule-form" class="space-y-3">
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-gray-400 uppercase">Kategori</label>
-                                <select id="kategori" class="w-full p-3 bg-gray-50 rounded-lg text-xs font-bold border border-gray-200 focus:border-indigo-500 outline-none" onchange="toggleFormFields()">
-                                    <option value="daily">Kuliah Harian</option>
-                                    <option value="uts">UTS</option>
-                                    <option value="uas">UAS</option>
-                                    <option value="personal">Personal</option>
-                                </select>
-                            </div>
+                <div class="dashboard-card p-5">
+                    <h3 class="font-bold text-xs text-indigo-600 uppercase mb-3 flex items-center gap-2"><i class="fas fa-plus-circle"></i> Input Jadwal</h3>
+                    <form id="add-schedule-form" class="space-y-3">
+                        <select id="kategori" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs font-bold border border-gray-200 focus:border-indigo-500 outline-none" onchange="toggleFormFields()">
+                            <option value="daily">Kuliah Harian</option>
+                            <option value="uts">UTS</option>
+                            <option value="uas">UAS</option>
+                            <option value="personal">Personal</option>
+                        </select>
 
-                            <div id="wrapper-frekuensi" class="flex gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-                                <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="frekuensi" value="routine" class="w-3 h-3 accent-indigo-600" checked onchange="toggleFormFields()"><span class="text-[10px] font-bold text-indigo-800">Rutin</span></label>
-                                <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="frekuensi" value="once" class="w-3 h-3 accent-indigo-600" onchange="toggleFormFields()"><span class="text-[10px] font-bold text-indigo-800">Tgl Spesifik</span></label>
-                            </div>
+                        <div id="wrapper-frekuensi" class="flex gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="frekuensi" value="routine" class="w-3 h-3 accent-indigo-600" checked onchange="toggleFormFields()"><span class="text-[10px] font-bold text-indigo-800">Rutin</span></label>
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="frekuensi" value="once" class="w-3 h-3 accent-indigo-600" onchange="toggleFormFields()"><span class="text-[10px] font-bold text-indigo-800">Tgl Spesifik</span></label>
+                        </div>
 
-                            <input type="text" id="matkul" class="w-full p-3 bg-gray-50 rounded-lg text-xs border border-gray-200" placeholder="Nama Kegiatan..." required>
-                            
-                            <select id="hari" class="w-full p-3 bg-gray-50 rounded-lg text-xs border border-gray-200"><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option><option value="Minggu">Minggu</option></select>
-                            <input type="date" id="tanggal" class="w-full p-3 bg-yellow-50 rounded-lg text-xs border border-yellow-200 hidden">
-                            
+                        <input type="text" id="matkul" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200" placeholder="Nama Kegiatan..." required>
+                        <select id="hari" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200"><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option><option value="Minggu">Minggu</option></select>
+                        <input type="date" id="tanggal" class="w-full p-2.5 bg-yellow-50 rounded-lg text-xs border border-yellow-200 hidden">
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="waktu" placeholder="08:00-10:00" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200" required>
+                            <input type="text" id="ruangan" placeholder="Lokasi" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200">
+                        </div>
+                        
+                        <div id="academic-fields" class="hidden space-y-2 pt-2 border-t border-dashed">
+                            <input type="text" id="kode" placeholder="Kode MK" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs">
+                            <input type="text" id="dosen" placeholder="Dosen" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs">
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="waktu" placeholder="08:00-10:00" class="w-full p-3 bg-gray-50 rounded-lg text-xs border border-gray-200" required>
-                                <input type="text" id="ruangan" placeholder="Lokasi" class="w-full p-3 bg-gray-50 rounded-lg text-xs border border-gray-200">
+                                <select id="tipe" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs"><option value="Teori">Teori</option><option value="Praktek">Praktek</option></select>
+                                <input type="text" id="kelas" placeholder="Kelas" class="w-full p-2.5 bg-gray-50 rounded-lg text-xs">
                             </div>
-                            
-                            <div id="academic-fields" class="hidden space-y-2 pt-2 border-t border-dashed">
-                                <input type="text" id="kode" placeholder="Kode MK" class="w-full p-3 bg-gray-50 rounded-lg text-xs">
-                                <input type="text" id="dosen" placeholder="Dosen" class="w-full p-3 bg-gray-50 rounded-lg text-xs">
-                                <div class="grid grid-cols-2 gap-2">
-                                    <select id="tipe" class="w-full p-3 bg-gray-50 rounded-lg text-xs"><option value="Teori">Teori</option><option value="Praktek">Praktek</option></select>
-                                    <input type="text" id="kelas" placeholder="Kelas" class="w-full p-3 bg-gray-50 rounded-lg text-xs">
-                                </div>
-                            </div>
-                            <div id="personal-fields" class="hidden pt-2 border-t border-dashed">
-                                <textarea id="keterangan" placeholder="Catatan..." class="w-full p-3 bg-gray-50 rounded-lg text-xs" rows="2"></textarea>
-                            </div>
-                            
-                            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition text-xs shadow-lg shadow-indigo-200">SIMPAN DATABASE</button>
-                        </form>
-                    </div>
+                        </div>
+                        <div id="personal-fields" class="hidden pt-2 border-t border-dashed">
+                            <textarea id="keterangan" placeholder="Catatan..." class="w-full p-2.5 bg-gray-50 rounded-lg text-xs" rows="2"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition text-xs shadow-md">SIMPAN</button>
+                    </form>
                 </div>
             </div>
 
-            <div class="lg:col-span-5 space-y-6">
-                
-                <div class="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 text-white p-6 rounded-3xl shadow-2xl relative overflow-hidden ring-4 ring-indigo-50">
-                    <div class="absolute top-[-20px] right-[-20px] w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
-                    
-                    <div class="flex justify-between items-start mb-6 relative z-10">
+            <div class="lg:col-span-5 space-y-4">
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-4 relative z-10">
                         <div>
-                            <h2 class="text-2xl font-bold flex items-center gap-2"><i class="fas fa-battery-full text-green-400"></i> Energy Monitor</h2>
-                            <p id="sleep-status-text" class="text-xs text-indigo-200 mt-1">Status: Standby</p>
+                            <h2 class="text-xl font-bold">Sleep Tracker</h2>
+                            <p id="sleep-status-text" class="text-[10px] text-slate-300">Siap beraktivitas!</p>
                         </div>
                         <div class="text-right">
-                            <h3 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400" id="energy-level">100%</h3>
-                            <p class="text-[9px] uppercase tracking-widest text-white/60 font-bold">Current Capacity</p>
+                            <h3 class="text-3xl font-bold text-yellow-400" id="energy-level">100%</h3>
+                            <p class="text-[9px] uppercase tracking-widest text-white/50">Energi Tubuh</p>
                         </div>
                     </div>
 
-                    <div class="w-full bg-white/10 h-2 rounded-full mb-6 overflow-hidden">
-                        <div id="energy-bar" class="h-full bg-gradient-to-r from-green-400 to-yellow-400 transition-all duration-1000" style="width: 100%"></div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-4 relative z-10">
-                        <button onclick="toggleSleep(true)" id="btn-sleep" class="bg-indigo-600/80 hover:bg-indigo-500 backdrop-blur py-4 rounded-2xl flex flex-col items-center gap-1 transition shadow-lg border border-indigo-400/30">
-                            <i class="fas fa-moon text-2xl text-indigo-200"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Mulai Tidur</span>
-                            <span id="sleep-time-display" class="text-[10px] text-white/70">--:--</span>
+                    <div class="grid grid-cols-2 gap-3 mb-3 relative z-10">
+                        <button onclick="toggleSleep(true)" id="btn-sleep" class="bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl flex flex-col items-center gap-1 transition border border-indigo-500/50">
+                            <i class="fas fa-bed text-xl"></i>
+                            <span class="text-[10px] font-bold uppercase">Mulai Tidur</span>
+                            <span id="sleep-time-display" class="text-[9px] opacity-70">--:--</span>
                         </button>
-                        <button onclick="toggleSleep(false)" id="btn-wake" class="bg-orange-500/80 hover:bg-orange-400 backdrop-blur py-4 rounded-2xl flex flex-col items-center gap-1 transition shadow-lg border border-orange-400/30 opacity-50 cursor-not-allowed">
-                            <i class="fas fa-sun text-2xl text-yellow-100"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Bangun</span>
-                            <span id="wake-time-display" class="text-[10px] text-white/70">--:--</span>
+                        <button onclick="toggleSleep(false)" id="btn-wake" class="bg-orange-500 hover:bg-orange-400 py-3 rounded-xl flex flex-col items-center gap-1 transition border border-orange-400/50 opacity-50 cursor-not-allowed">
+                            <i class="fas fa-sun text-xl"></i>
+                            <span class="text-[10px] font-bold uppercase">Bangun</span>
+                            <span id="wake-time-display" class="text-[9px] opacity-70">--:--</span>
                         </button>
                     </div>
-                    
-                    <div class="bg-black/20 p-3 rounded-xl text-center relative z-10 border border-white/5">
-                        <p id="sleep-duration-text" class="text-xs font-medium text-indigo-100">Menunggu input...</p>
+                    <div class="bg-white/10 p-2 rounded-lg text-center relative z-10">
+                        <p id="sleep-duration-text" class="text-xs font-medium">Durasi: 0 Jam 0 Menit</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="dashboard-card p-5">
-                        <div class="flex items-center gap-2 mb-3 border-b border-dashed border-gray-200 pb-2">
-                            <i class="fas fa-male text-blue-500 text-lg"></i>
-                            <h4 class="font-bold text-gray-800 text-sm">Biometrics</h4>
-                        </div>
-                        <div class="space-y-2 mb-3">
+                    <div class="dashboard-card p-4">
+                        <h4 class="font-bold text-gray-800 text-xs mb-3 flex items-center gap-2"><i class="fas fa-ruler-vertical text-blue-500"></i> Body Stats</h4>
+                        <div class="space-y-2 mb-2">
                             <div class="flex justify-between items-center text-xs">
-                                <span class="text-gray-500">Tinggi</span>
-                                <span class="font-bold">180 cm</span>
+                                <span class="text-gray-500">Tinggi</span><span class="font-bold">180 cm</span>
                             </div>
                             <div class="flex justify-between items-center text-xs">
                                 <span class="text-gray-500">Berat</span>
-                                <div class="flex items-center">
-                                    <input type="number" id="input-bb" value="52" class="w-10 text-right bg-transparent border-b border-gray-300 focus:outline-none text-gray-800 font-bold" onchange="calculateBMI()"> 
-                                    <span class="ml-1">kg</span>
-                                </div>
+                                <div><input type="number" id="input-bb" value="50" class="w-8 text-right border-b focus:outline-none font-bold" onchange="calculateBMI()"> kg</div>
                             </div>
                         </div>
-                        <div id="bmi-result" class="bg-gray-100 text-[10px] font-bold p-2 rounded text-center text-gray-500">Loading...</div>
+                        <div id="bmi-result" class="bg-yellow-50 text-yellow-700 text-[9px] font-bold p-1.5 rounded text-center">Loading...</div>
                     </div>
-
-                    <div class="dashboard-card p-5">
-                        <div class="flex items-center gap-2 mb-3 border-b border-dashed border-gray-200 pb-2">
-                            <i class="fas fa-utensils text-orange-500 text-lg"></i>
-                            <h4 class="font-bold text-gray-800 text-sm">Fueling</h4>
-                        </div>
-                        <div class="space-y-4">
+                    <div class="dashboard-card p-4">
+                        <h4 class="font-bold text-gray-800 text-xs mb-3 flex items-center gap-2"><i class="fas fa-tint text-cyan-500"></i> Intake</h4>
+                        <div class="space-y-3">
                             <div class="flex items-center justify-between">
-                                <span class="text-xs text-gray-600 font-medium">Makan</span>
-                                <div class="flex gap-2">
-                                    <input type="checkbox" class="w-5 h-5 accent-green-500 cursor-pointer" id="eat-1" onchange="updateEnergyFromFood()">
-                                    <input type="checkbox" class="w-5 h-5 accent-green-500 cursor-pointer" id="eat-2" onchange="updateEnergyFromFood()">
-                                    <input type="checkbox" class="w-5 h-5 accent-green-500 cursor-pointer" id="eat-3" onchange="updateEnergyFromFood()">
+                                <span class="text-xs text-gray-600">Makan</span>
+                                <div class="flex gap-1">
+                                    <input type="checkbox" class="w-4 h-4 accent-green-500 cursor-pointer" id="eat-1" onchange="updateEnergyFromFood()">
+                                    <input type="checkbox" class="w-4 h-4 accent-green-500 cursor-pointer" id="eat-2" onchange="updateEnergyFromFood()">
+                                    <input type="checkbox" class="w-4 h-4 accent-green-500 cursor-pointer" id="eat-3" onchange="updateEnergyFromFood()">
                                 </div>
                             </div>
                             <div class="flex items-center justify-between">
-                                <span class="text-xs text-gray-600 font-medium">Air (L)</span>
-                                <div class="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-lg">
-                                    <button onclick="updateWater(-1)" class="text-blue-400 hover:text-blue-600"><i class="fas fa-minus"></i></button>
-                                    <span id="water-count" class="text-sm font-bold text-blue-700 w-4 text-center">0</span>
-                                    <button onclick="updateWater(1)" class="text-blue-400 hover:text-blue-600"><i class="fas fa-plus"></i></button>
+                                <span class="text-xs text-gray-600">Minum</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="updateWater(-1)" class="text-gray-400 hover:text-blue-500"><i class="fas fa-minus-circle"></i></button>
+                                    <span id="water-count" class="text-sm font-bold text-blue-600">0</span>
+                                    <button onclick="updateWater(1)" class="text-gray-400 hover:text-blue-500"><i class="fas fa-plus-circle"></i></button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="dashboard-card p-6 h-full">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2"><i class="fas fa-tasks text-indigo-500"></i> Checklist Harian</h3>
-                        <span id="date-today-display" class="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold">...</span>
+                <div class="dashboard-card p-5 h-full">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-gray-800 text-xs flex items-center gap-2"><i class="fas fa-tasks text-gray-400"></i> Misi Hari Ini</h3>
+                        <span id="date-today-display" class="text-[9px] bg-gray-100 px-2 py-1 rounded text-gray-500 font-bold">...</span>
                     </div>
-                    <div id="daily-checklist-container" class="space-y-3 max-h-[300px] overflow-y-auto custom-scroll pr-2">
+                    <div id="daily-checklist-container" class="space-y-2 max-h-[200px] overflow-y-auto custom-scroll pr-1">
                         </div>
                 </div>
             </div>
 
             <div class="lg:col-span-4">
                 <div class="dashboard-card p-0 h-[85vh] flex flex-col sticky top-24 overflow-hidden">
-                    <div class="card-header bg-slate-50 border-b border-slate-100">
-                        <h3 class="text-sm"><i class="fas fa-database text-slate-400 mr-2"></i>Database</h3>
-                        <div class="flex gap-1">
-                            <button onclick="switchTab('list-daily', this)" class="tab-btn active px-2 py-1 text-[10px] font-bold bg-white border border-gray-200 shadow-sm rounded text-indigo-600">Daily</button>
-                            <button onclick="switchTab('list-uts', this)" class="tab-btn px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600">Exam</button>
-                            <button onclick="switchTab('list-personal', this)" class="tab-btn px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600">Priv</button>
+                    <div class="px-4 py-3 bg-slate-50 border-b border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-gray-800 text-xs">Database Jadwal</h3>
+                        </div>
+                        <div class="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                            <button onclick="switchTab('list-daily', this)" class="tab-btn active px-3 py-1 text-[10px] font-bold bg-white shadow-sm rounded text-indigo-600 flex-shrink-0 border">Harian</button>
+                            <button onclick="switchTab('list-uts', this)" class="tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0">UTS</button>
+                            <button onclick="switchTab('list-uas', this)" class="tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0">UAS</button>
+                            <button onclick="switchTab('list-personal', this)" class="tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0">Pribadi</button>
                         </div>
                     </div>
                     
-                    <div class="px-4 py-3 bg-white border-b border-gray-50">
-                         <div class="relative">
-                             <input type="text" id="db-search" placeholder="Cari data..." class="w-full pl-8 pr-3 py-2 bg-gray-50 rounded-lg text-xs border border-gray-100 focus:outline-none focus:border-indigo-300">
-                             <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                         </div>
+                    <div class="px-4 py-2 bg-white border-b border-gray-50">
+                         <input type="text" id="db-search" placeholder="Cari data..." class="w-full px-3 py-1.5 bg-gray-50 rounded-lg text-xs border border-gray-100 focus:outline-none">
                     </div>
 
                     <div class="flex-grow relative bg-white">
