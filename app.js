@@ -45,6 +45,9 @@ async function fetchSettings() {
         }
     } catch (e) {
         console.error("Gagal load settings:", e);
+        // Fallback ke localStorage jika server error (Backup plan)
+        globalSettings.show_uts = localStorage.getItem('show_uts') === 'true';
+        globalSettings.show_uas = localStorage.getItem('show_uas') === 'true';
     }
 }
 
@@ -53,6 +56,10 @@ async function saveSettings(newStatus) {
         // Update variable lokal
         globalSettings = { ...globalSettings, ...newStatus };
         
+        // Simpan ke LocalStorage juga sebagai backup
+        if(newStatus.show_uts !== undefined) localStorage.setItem('show_uts', newStatus.show_uts);
+        if(newStatus.show_uas !== undefined) localStorage.setItem('show_uas', newStatus.show_uas);
+
         // Kirim ke Server
         await fetch('/api/settings', {
             method: 'POST',
@@ -71,17 +78,19 @@ function updateClock() {
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
     
+    // Format Index: 08.10.20
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
-    const adminClock = document.getElementById('admin-realtime-clock');
-
     if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Format Admin: 08:10:20 (Realtime Kecil)
+    const adminClock = document.getElementById('admin-realtime-clock');
     if(adminClock) adminClock.innerText = `${h}:${m}:${s}`;
 }
 
 // ==========================================
-// 2. LOGIC DASHBOARD (INDEX.HTML)
+// 2. LOGIC DASHBOARD (INDEX.HTML / ORANG TUA)
 // ==========================================
 function initDashboardFeatures() {
     updateDashboardMenu(); 
@@ -117,19 +126,83 @@ function updateDashboardMenu() {
     }
 }
 
+// --- FUNGSI INI YG HILANG KEMARIN (Daftar Jadwal Lengkap) ---
+window.loadScheduleData = async function(category) {
+    const tableBody = document.getElementById('schedule-table-body');
+    const titleElement = document.getElementById('page-category-badge');
+    
+    // Tampilkan status loading
+    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
+    if(titleElement) titleElement.innerText = category.toUpperCase();
+
+    try {
+        const response = await fetch(`/api/schedule?category=${category}`);
+        const data = await response.json();
+        
+        // Render Table (Fungsi renderTable dipanggil di sini)
+        renderTable(data, category); 
+    } catch (error) {
+        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
+    }
+}
+
+function renderTable(data, category) {
+    const tableBody = document.getElementById('schedule-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = ''; 
+
+    if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Jadwal Kosong</td></tr>`;
+        return;
+    }
+
+    // Sorting Logika
+    if (category === 'daily') {
+        const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
+        data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
+    } else {
+        data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
+    }
+
+    data.forEach(item => {
+        const badgeColor = (item.tipe === 'Praktek') ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
+        const detailText = (category === 'personal') ? (item.keterangan || '-') : (item.dosen || '-');
+        
+        // PENTING: Gunakan getSafeTitle helper
+        const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+
+        tableBody.innerHTML += `
+            <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm">
+                <td class="p-4 align-top w-24">
+                    <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
+                    <div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div>
+                </td>
+                <td class="p-4 align-top">
+                    <div class="font-bold text-gray-800 text-sm">${title}</div>
+                    <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${item.ruangan || '-'} • ${item.kelas || '-'}</div>
+                </td>
+                <td class="p-4 align-top text-right">
+                    <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
+                </td>
+            </tr>`;
+    });
+}
+// -------------------------------------------------------------
+
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
     const now = new Date();
+    // PERBAIKAN FORMAT TANGGAL LOKAL (PENTING)
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const tglIni = `${year}-${month}-${day}`;
-    const hariIni = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][now.getDay()];
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const hariIni = days[now.getDay()];
 
-    // Loading State (Hanya text kecil biar ga kedip parah)
-    // container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
+    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing data...</div>`;
 
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
@@ -144,6 +217,7 @@ async function loadTodaySchedule() {
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
+        // Logic Filter KEMBALI KE ORIGINAL YANG JALAN
         const isToday = (item) => {
             if (item.tanggal && item.tanggal === tglIni) return true;
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
@@ -162,17 +236,25 @@ async function loadTodaySchedule() {
         calculateSimpleBusyness(list);
 
         if (list.length === 0) {
-            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-300">
+                    <i class="fas fa-mug-hot text-2xl mb-2"></i>
+                    <p class="text-xs">Hari ini kosong. Santai!</p>
+                </div>`;
             return;
         }
 
         container.innerHTML = list.map(item => {
+             // Cek custom renderer
              if(window.rowWidget) return window.rowWidget(item, item.c);
-             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
+             // Fallback renderer
+             const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${title}</div>`;
         }).join('');
 
     } catch (e) {
         console.error("Load Error:", e);
+        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
     }
 }
 
@@ -258,7 +340,7 @@ function initAdminToggles() {
     }
 }
 
-// --- CRUD HELPER ---
+// --- CRUD HELPER (DIKEMBALIKAN KE LOGIKA ASLI) ---
 window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
@@ -283,6 +365,7 @@ async function loadAdminData(category) {
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
         
         data.forEach(item => {
+            // PENTING: getSafeTitle
             const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
             container.innerHTML += `
                 <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
@@ -301,6 +384,8 @@ if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!adminPassword) { alert("Login dulu!"); return; }
+        
+        // PENTING: LOGIKA INPUT BARU
         const rawData = {
             kategori: document.getElementById('kategori').value,
             matkul: document.getElementById('matkul').value,
@@ -314,6 +399,7 @@ if (addForm) {
             tipe: document.getElementById('tipe').value,
             keterangan: document.getElementById('keterangan').value,
         };
+        // Clean Hidden
         if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = "";
         if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
 
@@ -440,7 +526,11 @@ async function loadDailyChecklist() {
         container.innerHTML = "";
         list.forEach((item, index) => {
             const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${item.matkul || item.nama_kegiatan}</span></div>`;
+            
+            // PENTING: getSafeTitle
+            const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+            
+            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
         });
         updateEnergyFromFood();
     } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Error</p>'; }
