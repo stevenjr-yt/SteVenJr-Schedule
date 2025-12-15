@@ -121,24 +121,47 @@
 
     <script src="app.js"></script>
     <script>
-        function updateDashboardMenu() {
-            const utsBtn = document.getElementById('btn-menu-uts');
-            const uasBtn = document.getElementById('btn-menu-uas');
-            const container = document.getElementById('exam-buttons-container');
+       // GANTI function updateDashboardMenu() yang lama dengan ini:
+async function loadExamStatus() {
+    try {
+        // PENTING: '/api/settings' harus sesuai dengan alamat file settings.js kamu di hosting
+        // Kalau pakai Vercel biasanya di /api/settings, kalau manual sesuaikan path-nya
+        const response = await fetch('/api/settings'); 
+        const data = await response.json(); 
+
+        const utsBtn = document.getElementById('btn-menu-uts');
+        const uasBtn = document.getElementById('btn-menu-uas');
+        const container = document.getElementById('exam-buttons-container');
+
+        // Reset dulu ke hidden
+        if (utsBtn) utsBtn.classList.add('hidden');
+        if (uasBtn) uasBtn.classList.add('hidden');
+        if (container) container.classList.add('hidden');
+
+        // Cek status dari data Firebase
+        if (data.show_uts || data.show_uas) {
+            if(container) {
+                container.classList.remove('hidden');
+                container.classList.add('flex'); // Biar rapi flex-nya
+            }
             
-            const showUts = localStorage.getItem('show_uts') === 'true';
-            const showUas = localStorage.getItem('show_uas') === 'true';
-
-            if (utsBtn) utsBtn.classList.add('hidden');
-            if (uasBtn) uasBtn.classList.add('hidden');
-            if (container) container.classList.add('hidden');
-
-            if (showUts || showUas) {
-                if(container) container.classList.remove('hidden');
-                if (showUts && utsBtn) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
-                if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
+            if (data.show_uts && utsBtn) { 
+                utsBtn.classList.remove('hidden'); 
+                utsBtn.classList.add('flex'); 
+            }
+            
+            if (data.show_uas && uasBtn) { 
+                uasBtn.classList.remove('hidden'); 
+                uasBtn.classList.add('flex'); 
             }
         }
+    } catch (error) {
+        console.error("Gagal konek ke settings:", error);
+    }
+}
+
+// Jalankan saat web dibuka
+document.addEventListener('DOMContentLoaded', loadExamStatus);
         document.addEventListener('DOMContentLoaded', updateDashboardMenu);
         window.addEventListener('storage', (event) => { if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu(); });
 
@@ -189,3 +212,4 @@
     </script>
 </body>
 </html>
+
