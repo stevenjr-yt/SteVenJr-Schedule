@@ -31,9 +31,7 @@
             
             <div class="space-y-5">
                 <input type="email" id="email" placeholder="Email Address" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition text-center text-lg">
-                
                 <input type="password" id="password" placeholder="Password" class="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition text-center text-lg">
-                
                 <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">MASUK</button>
             </div>
             <p id="login-error" class="text-red-500 text-center mt-4 hidden font-medium"></p>
@@ -71,32 +69,73 @@
                     <h3 class="font-bold text-xl text-gray-800 mb-6 flex items-center gap-3"><i class="fas fa-plus-circle text-green-500"></i> Tambah Jadwal</h3>
                     
                     <form id="add-schedule-form" class="space-y-5">
+                        
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kategori</label>
-                            <select id="kategori" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-700 focus:ring-2 focus:ring-blue-500 transition" onchange="toggleFormFields()">
+                            <select id="kategori" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-700 focus:ring-2 focus:ring-blue-500 transition font-medium" onchange="toggleFormFields()">
                                 <option value="daily">Kuliah Harian</option>
                                 <option value="uts">UTS</option>
                                 <option value="uas">UAS</option>
                                 <option value="personal">Pribadi (Personal)</option>
                             </select>
                         </div>
-                        <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Kegiatan / Matkul</label><input type="text" id="matkul" class="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition" placeholder="Contoh: Algoritma" required></div>
-                        <div id="field-hari"><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Hari</label><select id="hari" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-700"><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option><option value="Minggu">Minggu</option></select></div>
-                        <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Waktu (Jam)</label><input type="text" id="waktu" placeholder="08:00-10:00" class="w-full p-4 bg-gray-50 border-none rounded-xl" required></div>
-                        <div id="field-tanggal"><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tanggal</label><input type="date" id="tanggal" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-600"></div>
-                        <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tempat / Ruangan</label><input type="text" id="ruangan" placeholder="Gedung F / Rumah" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
-                        <div id="academic-fields" class="space-y-5 pt-4 border-t border-dashed">
-                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode MK</label><input type="text" id="kode" placeholder="Kode" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
-                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Dosen</label><input type="text" id="dosen" placeholder="Nama Dosen" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tipe</label><select id="tipe" class="w-full p-4 bg-gray-50 border-none rounded-xl"><option value="Teori">Teori</option><option value="Praktek">Praktek</option></select></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kelas</label><input type="text" id="kelas" placeholder="3TI1" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+
+                        <div id="wrapper-frekuensi" class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                            <label class="text-xs font-bold text-blue-500 uppercase tracking-wide mb-2 block">Tipe Jadwal</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="frekuensi" value="routine" class="w-4 h-4 text-blue-600" checked onchange="toggleFormFields()">
+                                    <span class="text-sm font-medium text-gray-700">Rutin (Mingguan)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="frekuensi" value="once" class="w-4 h-4 text-blue-600" onchange="toggleFormFields()">
+                                    <span class="text-sm font-medium text-gray-700">Tanggal Spesifik</span>
+                                </label>
                             </div>
                         </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Kegiatan / Matkul</label>
+                            <input type="text" id="matkul" class="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition" placeholder="Contoh: Algoritma" required>
+                        </div>
+
+                        <div id="field-hari">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Hari (Berulang)</label>
+                            <select id="hari" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-700">
+                                <option value="Senin">Senin</option>
+                                <option value="Selasa">Selasa</option>
+                                <option value="Rabu">Rabu</option>
+                                <option value="Kamis">Kamis</option>
+                                <option value="Jumat">Jumat</option>
+                                <option value="Sabtu">Sabtu</option>
+                                <option value="Minggu">Minggu</option>
+                            </select>
+                        </div>
+
+                        <div id="field-tanggal" class="hidden">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tanggal Spesifik</label>
+                            <input type="date" id="tanggal" class="w-full p-4 bg-gray-50 border-none rounded-xl text-gray-600 bg-yellow-50 border-yellow-100">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Waktu</label><input type="text" id="waktu" placeholder="08:00-10:00" class="w-full p-4 bg-gray-50 border-none rounded-xl" required></div>
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Ruangan</label><input type="text" id="ruangan" placeholder="F.4.2" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+                        </div>
+
+                        <div id="academic-fields" class="space-y-4 pt-4 border-t border-dashed">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kode MK</label><input type="text" id="kode" placeholder="KODE" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Tipe</label><select id="tipe" class="w-full p-4 bg-gray-50 border-none rounded-xl"><option value="Teori">Teori</option><option value="Praktek">Praktek</option></select></div>
+                            </div>
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Dosen</label><input type="text" id="dosen" placeholder="Nama Dosen" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+                            <div><label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Kelas</label><input type="text" id="kelas" placeholder="3TI1" class="w-full p-4 bg-gray-50 border-none rounded-xl"></div>
+                        </div>
+
                         <div id="personal-fields" class="hidden pt-4 border-t border-dashed">
                             <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Keterangan / Catatan</label>
                             <textarea id="keterangan" placeholder="Detail kegiatan..." class="w-full p-4 bg-gray-50 border-none rounded-xl" rows="2"></textarea>
                         </div>
+
                         <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-green-200 transition mt-4">SIMPAN DATA</button>
                     </form>
                 </div>
@@ -106,7 +145,7 @@
                 <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="font-bold text-gray-800 text-xl">Database Jadwal</h3>
-                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">API Sync</span>
+                        <span class="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full font-bold">Realtime</span>
                     </div>
                     <div class="flex space-x-3 border-b border-gray-200 mb-6 overflow-x-auto pb-2">
                         <button onclick="switchTab('list-daily', this)" class="tab-btn active px-5 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition whitespace-nowrap">HARIAN</button>
@@ -127,7 +166,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script> 
-    
     <script src="app.js"></script>
     
     <script>
@@ -135,29 +173,66 @@
             const cat = document.getElementById('kategori').value;
             const academicGroup = document.getElementById('academic-fields');
             const personalGroup = document.getElementById('personal-fields');
+            
+            // Elemen Frekuensi
+            const wrapperFrekuensi = document.getElementById('wrapper-frekuensi');
+            const radioRoutine = document.querySelector('input[value="routine"]');
+            const radioOnce = document.querySelector('input[value="once"]');
+            
+            // Elemen Waktu
             const fieldHari = document.getElementById('field-hari');
             const fieldTanggal = document.getElementById('field-tanggal');
+            const inputHari = document.getElementById('hari');
+            const inputTanggal = document.getElementById('tanggal');
 
+            // --- LOGIKA 1: Akademik vs Personal Fields ---
             if (cat === 'personal') {
                 academicGroup.classList.add('hidden');
                 personalGroup.classList.remove('hidden');
-                fieldTanggal.classList.remove('hidden');
-            } else if (cat === 'daily') {
-                academicGroup.classList.remove('hidden');
-                personalGroup.classList.add('hidden');
-                fieldTanggal.classList.add('hidden'); 
-                fieldHari.classList.remove('hidden');
             } else {
                 academicGroup.classList.remove('hidden');
                 personalGroup.classList.add('hidden');
-                fieldTanggal.classList.remove('hidden');
+            }
+
+            // --- LOGIKA 2: Frekuensi (Rutin vs Spesifik) ---
+            
+            // Jika UTS atau UAS -> HARUS Tanggal Spesifik
+            if (cat === 'uts' || cat === 'uas') {
+                // Sembunyikan pilihan frekuensi biar gak bingung, paksa ke 'once'
+                wrapperFrekuensi.classList.add('hidden');
+                radioOnce.checked = true;
+                
+                // Tampilkan input Tanggal, Sembunyikan Hari
                 fieldHari.classList.add('hidden');
+                fieldTanggal.classList.remove('hidden');
+                
+                // Bersihkan nilai Hari biar tidak terkirim ke DB (opsional)
+                inputHari.value = ""; 
+            } 
+            // Jika Daily atau Personal -> User BISA PILIH
+            else {
+                wrapperFrekuensi.classList.remove('hidden');
+                
+                // Cek User pilih apa?
+                if (radioRoutine.checked) {
+                    // Mode Rutin: Tampilkan Hari
+                    fieldHari.classList.remove('hidden');
+                    fieldTanggal.classList.add('hidden');
+                    inputTanggal.value = ""; // Reset tanggal
+                    
+                    // Default hari ke Senin kalau kosong
+                    if(inputHari.value === "") inputHari.value = "Senin";
+                } else {
+                    // Mode Spesifik: Tampilkan Tanggal
+                    fieldHari.classList.add('hidden');
+                    fieldTanggal.classList.remove('hidden');
+                    inputHari.value = ""; // Reset hari
+                }
             }
         }
+
+        // Jalankan saat load awal
         toggleFormFields();
     </script>
 </body>
 </html>
-
-
-
