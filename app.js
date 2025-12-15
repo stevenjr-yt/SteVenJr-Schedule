@@ -1,14 +1,15 @@
 // File: app.js
 
 // ==========================================
-// 1. GLOBAL VARS & INIT
+// 1. GLOBAL VARS
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
 let currentCategory = 'daily'; 
+// Default Settings (Aman jika server down)
 let globalSettings = { show_uts: false, show_uas: false }; 
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     // 1. Cek Login
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
@@ -18,27 +19,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.getElementById('admin-panel')) showAdminPanel();
     }
 
-    // 2. Jalankan Jam
+    // 2. Jam Digital
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 3. SYNC SETTINGS DARI SERVER DULU (PENTING BIAR TOGGLE GA RESET)
-    await fetchSettings();
-
-    // 4. Init Fitur Sesuai Halaman
+    // 3. LOAD DATA UTAMA (Langsung, jangan tunggu settings)
     if (document.getElementById('admin-panel')) {
         initAdminFeatures();
     } else if (document.getElementById('main-dashboard')) {
         initDashboardFeatures();
     }
+
+    // 4. LOAD SETTINGS BACKGROUND (Agar tidak nge-block tampilan jadwal)
+    fetchSettings().then(() => {
+        // Refresh UI setelah settings didapat
+        if(window.updateDashboardMenu) updateDashboardMenu();
+        if(window.initAdminToggles) initAdminToggles();
+        // Reload jadwal index agar filter UTS/UAS terupdate
+        if(document.getElementById('main-dashboard')) loadTodaySchedule();
+    });
 });
 
-// --- API SYNC SETTINGS (FIREBASE) ---
+// --- API SETTINGS ---
 async function fetchSettings() {
     try {
         const res = await fetch('/api/settings');
         if (res.ok) globalSettings = await res.json();
-    } catch (e) { console.error("Sync error:", e); }
+    } catch (e) { console.log("Settings info:", e); }
 }
 
 async function saveSettings(newStatus) {
@@ -49,7 +56,7 @@ async function saveSettings(newStatus) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(globalSettings)
         });
-    } catch (e) { alert("Gagal simpan setting!"); }
+    } catch (e) { alert("Gagal simpan toggle!"); }
 }
 
 function updateClock() {
@@ -57,30 +64,29 @@ function updateClock() {
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
-    const timeStr = `${h}.${m}.${s}`; // 08.10.20
-    const adminTimeStr = `${h}:${m}:${s}`; // 08:10:20
-
+    
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
     const adminClock = document.getElementById('admin-realtime-clock');
 
-    if(clockEl) clockEl.innerText = timeStr;
+    if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    if(adminClock) adminClock.innerText = adminTimeStr;
+    if(adminClock) adminClock.innerText = `${h}:${m}:${s}`;
 }
 
 // ==========================================
-// 2. LOGIC DASHBOARD (INDEX.HTML)
+// 2. LOGIC DASHBOARD (INDEX)
 // ==========================================
 function initDashboardFeatures() {
     updateDashboardMenu(); 
     loadTodaySchedule(); 
     
-    // Auto Refresh setiap 5 detik (Cek update dari Admin)
-    setInterval(async () => {
-        await fetchSettings();
-        updateDashboardMenu();
-        loadTodaySchedule(); 
+    // Auto Refresh Settings tiap 5 detik
+    setInterval(() => {
+        fetchSettings().then(() => {
+            updateDashboardMenu();
+            loadTodaySchedule();
+        });
     }, 5000);
 }
 
@@ -91,37 +97,38 @@ function updateDashboardMenu() {
 
     if(!container) return;
 
-    // Reset
-    utsBtn.classList.add('hidden');
-    uasBtn.classList.add('hidden');
-    container.classList.add('hidden');
-
-    // Cek Global Settings
-    if (globalSettings.show_uts || globalSettings.show_uas) {
+    if(globalSettings.show_uts || globalSettings.show_uas) {
         container.classList.remove('hidden');
         container.classList.add('flex');
+        utsBtn.classList.toggle('hidden', !globalSettings.show_uts);
+        uasBtn.classList.toggle('hidden', !globalSettings.show_uas);
         
-        if (globalSettings.show_uts) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
-        if (globalSettings.show_uas) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
+        if(globalSettings.show_uts) utsBtn.classList.add('flex');
+        if(globalSettings.show_uas) uasBtn.classList.add('flex');
+    } else {
+        container.classList.add('hidden');
+        container.classList.remove('flex');
     }
 }
 
-// --- FUNGSI LOAD SCHEDULE DATA (LOGIKA LAMA DIKEMBALIKAN) ---
+// --- FUNGSI LOAD SCHEDULE DATA (LOGIKA ASLI DIKEMBALIKAN) ---
 window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
-    const titleBadge = document.getElementById('page-category-badge');
+    const titleElement = document.getElementById('page-category-badge');
     
+    // Loading State
     if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
-    if(titleBadge) titleBadge.innerText = category.toUpperCase();
+    if(titleElement) titleElement.innerText = category.toUpperCase();
 
     try {
         const res = await fetch(`/api/schedule?category=${category}`);
+        if(!res.ok) throw new Error("Gagal Fetch API");
         const data = await res.json();
         
         if(!tableBody) return;
         tableBody.innerHTML = '';
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Data Kosong</td></tr>`;
             return;
         }
@@ -156,6 +163,7 @@ window.loadScheduleData = async function(category) {
         });
 
     } catch (error) {
+        console.error("LoadSchedule Error:", error);
         if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
     }
 }
@@ -165,6 +173,7 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
+    // Tanggal Lokal
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -181,12 +190,13 @@ async function loadTodaySchedule() {
             fetch('/api/schedule?category=personal')
         ]);
 
+        // Cek response status
         const daily = resDaily.ok ? await resDaily.json() : [];
         const uts = resUts.ok ? await resUts.json() : [];
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Logic Filter
+        // Logic Filter Hari Ini
         const isToday = (item) => {
             if (item.tanggal && item.tanggal === tglIni) return true;
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
@@ -215,14 +225,15 @@ async function loadTodaySchedule() {
         }).join('');
 
     } catch (e) {
-        console.error("Load Error:", e);
+        console.error("Dashboard Load Error:", e);
+        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
     }
 }
 
 function calculateSimpleBusyness(items) {
     let totalMinutes = 0;
     items.forEach(item => {
-        if(item.waktu.includes('-')) {
+        if(item.waktu && item.waktu.includes('-')) {
             const [start, end] = item.waktu.split('-');
             try {
                 const [sh, sm] = start.split(/[:.]/).map(Number);
@@ -239,6 +250,7 @@ function calculateSimpleBusyness(items) {
     if (bar && text && !document.getElementById('admin-panel')) {
         let percent = Math.round((totalMinutes / 480) * 100);
         if(percent > 100) percent = 100;
+        
         text.innerText = `${percent}%`;
         bar.style.width = `${percent}%`;
         
@@ -274,10 +286,14 @@ function initAdminFeatures() {
 function initAdminToggles() {
     const tUts = document.getElementById('toggle-uts');
     const tUas = document.getElementById('toggle-uas');
-    if (tUts) tUts.checked = globalSettings.show_uts;
-    if (tUas) tUas.checked = globalSettings.show_uas;
-    if (tUts) tUts.addEventListener('change', (e) => saveSettings({ show_uts: e.target.checked }));
-    if (tUas) tUas.addEventListener('change', (e) => saveSettings({ show_uas: e.target.checked }));
+    if (tUts) {
+        tUts.checked = globalSettings.show_uts;
+        tUts.addEventListener('change', (e) => saveSettings({ show_uts: e.target.checked }));
+    }
+    if (tUas) {
+        tUas.checked = globalSettings.show_uas;
+        tUas.addEventListener('change', (e) => saveSettings({ show_uas: e.target.checked }));
+    }
 }
 
 window.switchTab = function(targetId, btn) {
@@ -287,6 +303,7 @@ window.switchTab = function(targetId, btn) {
         b.className = "tab-btn px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
     });
     btn.className = "tab-btn active px-3 py-1.5 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
+    
     currentCategory = targetId.replace('list-', '');
     loadAdminData(currentCategory);
 }
@@ -374,17 +391,6 @@ function initHealthTracker() {
 function toggleSleep(isSleeping) {
     const now = new Date();
     if (isSleeping) {
-        const currentHour = now.getHours();
-        if (currentHour >= 3 && currentHour <= 10) {
-            if(confirm("Lupa absen tidur semalam? OK = Input Manual")) {
-                const m = prompt("Jam tidur (HH:MM):", "23:00");
-                if(m) {
-                    const [hh, mm] = m.split(':');
-                    now.setHours(hh, mm, 0);
-                    if (parseInt(hh) > currentHour) now.setDate(now.getDate() - 1);
-                }
-            }
-        }
         localStorage.setItem('steven_sleep_start', now.getTime());
         localStorage.removeItem('steven_wake_time'); 
         updateSleepUI(true, now);
@@ -471,7 +477,8 @@ async function loadDailyChecklist() {
         container.innerHTML = "";
         list.forEach((item, index) => {
             const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${item.matkul || item.nama_kegiatan}</span></div>`;
+            const title = item.matkul || item.nama_kegiatan || "Kegiatan";
+            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
         });
         updateEnergyFromFood();
     } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Error</p>'; }
