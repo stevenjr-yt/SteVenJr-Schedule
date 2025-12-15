@@ -211,7 +211,7 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
     const limitSore = 18 * 60; 
     let level = {};
 
-    // Skenario 1: Ada kegiatan LEWAT jam 18:00 (Malam)
+    // Skenario 1: Ada kegiatan LEWAT jam 18:00 (Malam) -> LEMBUR
     if (maxEndTime > limitSore) {
         level = {
             status: "LEMBUR / EXTRA 🔥",
@@ -221,7 +221,7 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
             msg: "Ada agenda malam ini. Jaga kesehatan, jangan lupa makan malam!"
         };
     } 
-    // Skenario 2: Total jam kerja > 8 jam (Overload)
+    // Skenario 2: Total jam kerja > 8 jam -> SANGAT SIBUK
     else if (totalHours > 8) {
         level = {
             status: "SANGAT SIBUK 💀",
@@ -231,7 +231,7 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
             msg: "Hari yang panjang. Segera istirahat jam 6 sore nanti!"
         };
     }
-    // Skenario 3: Produktif (4 - 8 Jam)
+    // Skenario 3: Produktif (4 - 8 Jam) -> PRODUKTIF
     else if (totalHours >= 4) {
         level = {
             status: "PRODUKTIF ✅",
@@ -241,7 +241,7 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
             msg: "Performa optimal. Selesaikan sebelum jam 6 sore."
         };
     }
-    // Skenario 4: Santai (< 4 Jam)
+    // Skenario 4: Santai (< 4 Jam) -> SANTAI
     else {
         level = {
             status: "SANTAI / LIGHT ☕",
@@ -499,18 +499,6 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
-    // Di dalam loadTodaySchedule(), setelah combinedToday.sort(...)
-
-        // ... kode sorting ...
-        combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-
-        // >>> TAMBAHKAN BARIS INI <<<
-        calculateBusyness(combinedToday); 
-        // >>> ------------------- <<<
-
-        if (combinedToday.length === 0) {
-            // ... dst
-
     container.innerHTML = `<div class="text-center py-5 text-gray-400 text-sm">Memuat data...</div>`;
 
     const now = new Date();
@@ -548,6 +536,10 @@ async function loadTodaySchedule() {
 
         // LOGIKA SORTING (URUT JAM) - Diperkuat agar tidak error null
         combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+
+        // === PANGGIL FUNGSI KESIBUKAN DI SINI ===
+        calculateBusyness(combinedToday); 
+        // ========================================
 
         if (combinedToday.length === 0) {
             container.innerHTML = `
@@ -608,4 +600,3 @@ function checkToggles() {
         });
     }
 }
-
