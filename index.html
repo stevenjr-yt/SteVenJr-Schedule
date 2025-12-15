@@ -22,6 +22,13 @@
         body { background-color: #f8fafc; }
         .widget-scroll::-webkit-scrollbar { width: 4px; }
         .widget-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Animasi Alert */
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .alert-anim { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
@@ -33,9 +40,11 @@
     </div>
 
     <div id="main-dashboard" class="w-[95%] max-w-md transition-all duration-300">
+        
         <div class="text-center mb-10">
             <h1 class="text-3xl font-bold text-indigo-900 tracking-tight mb-1">SteVenJr <span class="text-indigo-500">OS</span></h1>
             <p class="text-xs text-gray-400 font-medium mb-8">Personal Life Assistant</p>
+            
             <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-indigo-50 relative overflow-hidden group">
                 <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 group-hover:h-2 transition-all"></div>
                 <p id="current-date" class="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-2">...</p>
@@ -45,63 +54,131 @@
 
         <div class="bg-slate-900 rounded-2xl p-6 mb-8 text-white shadow-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5"><i class="fas fa-bolt text-6xl"></i></div>
-            <div class="flex justify-between items-center mb-4 relative z-10"><span class="text-xs font-bold text-slate-300 uppercase tracking-wider"><i class="fas fa-chart-line text-yellow-400 mr-2"></i>Daily Load</span><span id="energy-level" class="text-2xl font-black text-white">0%</span></div>
-            <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden relative z-10"><div id="energy-bar" class="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style="width: 0%"></div></div>
+            <div class="flex justify-between items-center mb-4 relative z-10">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider"><i class="fas fa-chart-line text-yellow-400 mr-2"></i>Daily Load</span>
+                <span id="energy-level" class="text-2xl font-black text-white">0%</span>
+            </div>
+            <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden relative z-10">
+                <div id="energy-bar" class="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style="width: 0%"></div>
+            </div>
             <p class="text-[10px] text-slate-400 mt-3 text-center italic opacity-80" id="busy-advice">"Menghitung jadwal..."</p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 mb-8">
             <div id="exam-buttons-container" class="flex gap-3 hidden animate-fade-in-up">
-                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-500 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-orange-200"><i class="fas fa-file-alt"></i> UTS</button>
-                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-purple-200"><i class="fas fa-graduation-cap"></i> UAS</button>
+                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-500 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-orange-200">
+                    <i class="fas fa-file-alt"></i> UTS
+                </button>
+                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-purple-200">
+                    <i class="fas fa-graduation-cap"></i> UAS
+                </button>
             </div>
-            <button onclick="switchView('daily')" class="bg-white text-indigo-700 border border-indigo-100 py-4 rounded-2xl font-bold hover:bg-indigo-50 hover:border-indigo-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group"><i class="fas fa-university text-indigo-400 group-hover:scale-110 transition"></i> Jadwal Kuliah</button>
-            <button onclick="switchView('personal')" class="bg-white text-gray-600 border border-gray-100 py-4 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group"><i class="fas fa-user text-gray-400 group-hover:scale-110 transition"></i> Agenda Pribadi</button>
+            
+            <button onclick="switchView('daily')" class="bg-white text-indigo-700 border border-indigo-100 py-4 rounded-2xl font-bold hover:bg-indigo-50 hover:border-indigo-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group">
+                <i class="fas fa-university text-indigo-400 group-hover:scale-110 transition"></i> Jadwal Kuliah
+            </button>
+            
+            <button onclick="switchView('personal')" class="bg-white text-gray-600 border border-gray-100 py-4 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group">
+                <i class="fas fa-user text-gray-400 group-hover:scale-110 transition"></i> Agenda Pribadi
+            </button>
         </div>
 
-        <div class="text-left">
-            <h2 class="text-xs font-bold mb-4 text-gray-400 uppercase tracking-widest ml-2">Timeline Hari Ini</h2>
-            <div id="today-schedule-container" class="space-y-4 min-h-[100px]"><p class="text-center text-gray-400 text-xs py-5">Memuat data...</p></div>
+        <div class="text-left w-full pl-2">
+            <h2 class="text-xs font-bold mb-6 text-gray-400 uppercase tracking-widest ml-1">Timeline Hari Ini</h2>
+            <div id="today-schedule-container" class="space-y-0 min-h-[100px] border-l-2 border-dashed border-gray-200 ml-3 pl-6 pb-2 relative">
+                <p class="text-center text-gray-400 text-xs py-5 -ml-6">Memuat data...</p>
+            </div>
         </div>
     </div>
 
     <div id="schedule-view" class="hidden w-[95%] max-w-4xl mt-5 pb-20 animate-fade-in-up">
         
-        <div id="conflict-alert" class="hidden mb-4 px-6 py-4 rounded-xl text-center font-bold border-2 text-lg shadow-lg transition-all animate-bounce"></div>
+        <div id="conflict-alert" class="hidden mb-6 mx-auto max-w-lg alert-anim">
+            </div>
 
         <header class="bg-white p-5 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border border-gray-100 sticky top-5 z-40">
             <div class="text-center md:text-left">
                 <h1 class="text-xl font-bold text-gray-800">Daftar Jadwal</h1>
                 <span id="page-category-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 inline-block uppercase mt-1">...</span>
             </div>
-            <div class="flex gap-2 w-full md:w-auto">
+            
+            <div class="flex gap-2 w-full md:w-auto items-center">
                 <div class="relative flex-grow">
                     <input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari..." class="pl-9 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 w-full text-xs transition">
                     <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
                 </div>
                 
-                <button onclick="checkConflictsUI()" class="bg-yellow-100 text-yellow-700 px-4 py-2.5 rounded-xl font-bold hover:bg-yellow-200 transition text-xs shadow-lg flex items-center gap-2">
+                <button onclick="checkConflictsUI()" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-4 py-2.5 rounded-xl font-bold transition text-xs shadow-sm flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-exclamation-triangle"></i> Cek Bentrok
                 </button>
 
-                <button onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition text-xs shadow-lg"><i class="fas fa-times"></i></button>
+                <button onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition text-xs shadow-lg">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </header>
 
         <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
-            <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><tbody id="schedule-table-body" class="divide-y divide-gray-50 text-gray-600 text-sm"></tbody></table></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <tbody id="schedule-table-body" class="divide-y divide-gray-50 text-gray-600 text-sm"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script src="app.js"></script>
+    
     <script>
-        // === GAYA TAMPILAN (VISUAL) ===
+        // === LOGIC TAMPILAN KHUSUS ===
 
-        // 1. Logic Notifikasi Dashboard
+        // 1. WIDGET TIMELINE (GARIS VERTIKAL)
+        function rowWidget(i, c) {
+            // Mapping Warna
+            const colors = {
+                'orange': 'bg-orange-50 text-orange-900 border-orange-200',
+                'purple': 'bg-purple-50 text-purple-900 border-purple-200',
+                'blue':   'bg-indigo-50 text-indigo-900 border-indigo-200',
+                'green':  'bg-emerald-50 text-emerald-900 border-emerald-200'
+            }[c] || 'bg-gray-50 text-gray-900 border-gray-200';
+
+            const dotColor = {
+                'orange': 'bg-orange-400',
+                'purple': 'bg-purple-400',
+                'blue':   'bg-indigo-400',
+                'green':  'bg-emerald-400'
+            }[c] || 'bg-gray-400';
+
+            const detail = (c === 'green') ? (i.keterangan || '-') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
+
+            return `
+            <div class="relative mb-6 group last:mb-0">
+                <div class="absolute -left-[31px] top-4 w-4 h-4 rounded-full border-[3px] border-white ${dotColor} shadow-sm z-10"></div>
+                
+                <div class="${colors} border p-4 rounded-2xl shadow-sm relative transition hover:-translate-y-1 hover:shadow-md">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1 block">${i.label || 'KEGIATAN'}</span>
+                            <h4 class="font-bold text-base leading-tight mb-1">${i.matkul || i.nama_kegiatan}</h4>
+                            <p class="text-xs opacity-70 flex items-center gap-1"><i class="fas fa-map-marker-alt text-[10px]"></i> ${detail}</p>
+                        </div>
+                        <div class="text-right">
+                             <div class="bg-white/60 backdrop-blur px-2 py-1 rounded-lg text-xs font-bold shadow-sm border border-black/5 whitespace-nowrap">
+                                ${i.waktu}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // 2. Logic Update Tombol Menu
         function updateDashboardMenu() {
             const utsBtn = document.getElementById('btn-menu-uts');
             const uasBtn = document.getElementById('btn-menu-uas');
             const container = document.getElementById('exam-buttons-container');
+
+            // Ambil dari LocalStorage (disinkronkan oleh app.js)
             const showUts = localStorage.getItem('show_uts') === 'true';
             const showUas = localStorage.getItem('show_uas') === 'true';
 
@@ -115,39 +192,28 @@
                 if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
             }
         }
+
+        // Listener
         document.addEventListener('DOMContentLoaded', updateDashboardMenu);
-        window.addEventListener('storage', (event) => { if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu(); });
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu();
+        });
 
-        // 2. Logic Widget (GAYA LAMA / CARD STYLE)
-        function rowWidget(i, c) {
-            // Warna-warna cerah seperti sebelumnya
-            const colors = {
-                'orange': 'border-orange-500 bg-orange-50 text-orange-900',
-                'purple': 'border-purple-500 bg-purple-50 text-purple-900',
-                'blue':   'border-blue-500 bg-blue-50 text-blue-900',
-                'green':  'border-green-500 bg-green-50 text-green-900'
-            }[c] || 'border-gray-500 bg-gray-50 text-gray-900';
-
-            const detail = (c === 'green') ? (i.keterangan || '-') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
-            
-            // RETURN HTML STYLE KARTU (BUKAN TIMELINE)
-            return `
-            <div class="${colors} border-l-8 p-5 rounded-2xl mb-4 shadow-sm hover:shadow-md transition relative overflow-hidden group">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1 block">${i.label || 'KEGIATAN'}</span>
-                        <h4 class="font-extrabold text-lg leading-tight mb-1">${i.matkul || i.nama_kegiatan}</h4>
-                        <p class="text-sm opacity-80 flex items-center gap-2"><i class="fas fa-map-marker-alt"></i> ${detail}</p>
-                    </div>
-                    <div class="bg-white/80 px-3 py-1 rounded-lg text-sm font-bold shadow-sm backdrop-blur-sm whitespace-nowrap">
-                        ${i.waktu}
-                    </div>
-                </div>
-            </div>`;
+        // Helper Navigasi
+        function switchView(type) {
+            document.getElementById('main-dashboard').style.display = 'none';
+            document.getElementById('schedule-view').style.display = 'block';
+            window.scrollTo(0,0);
+            if(window.loadScheduleData) window.loadScheduleData(type);
         }
-
-        function switchView(type) { document.getElementById('main-dashboard').style.display = 'none'; document.getElementById('schedule-view').style.display = 'block'; window.scrollTo(0,0); if(window.loadScheduleData) window.loadScheduleData(type); }
-        function searchSchedule() { const input = document.getElementById('searchInput').value.toLowerCase(); const rows = document.querySelectorAll('#schedule-table-body tr'); rows.forEach(row => { row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none'; }); }
+        
+        function searchSchedule() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#schedule-table-body tr');
+            rows.forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none';
+            });
+        }
     </script>
 </body>
 </html>
