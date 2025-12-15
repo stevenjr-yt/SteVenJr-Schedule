@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
 
-// Inisialisasi Firebase (Sama persis dengan schedule.js agar tidak error path)
+// Inisialisasi Firebase (Sama persis biar konek)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -18,18 +18,18 @@ const db = admin.firestore();
 export default async function handler(req, res) {
   const { method } = req;
 
-  // GET: Ambil Status Toggle
+  // GET Settings
   if (method === 'GET') {
     try {
       const doc = await db.collection('config').doc('display_mode').get();
       if (!doc.exists) return res.status(200).json({ show_uts: false, show_uas: false });
       return res.status(200).json(doc.data());
     } catch (error) {
-      return res.status(500).json({ error: 'Gagal load settings' });
+      return res.status(500).json({ error: 'Failed load settings' });
     }
   }
 
-  // POST: Simpan Status Toggle
+  // POST Settings
   if (method === 'POST') {
     try {
       const { show_uts, show_uas } = req.body;
@@ -37,9 +37,9 @@ export default async function handler(req, res) {
         show_uts: Boolean(show_uts),
         show_uas: Boolean(show_uas)
       }, { merge: true });
-      return res.status(200).json({ message: 'Settings saved' });
+      return res.status(200).json({ message: 'Settings Saved' });
     } catch (error) {
-      return res.status(500).json({ error: 'Gagal save settings' });
+      return res.status(500).json({ error: 'Failed save settings' });
     }
   }
 }
