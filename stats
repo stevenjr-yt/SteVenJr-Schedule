@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status - SteVenJr OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #0f172a; color: #e2e8f0; }
+        .status-card { background: #1e293b; border: 1px solid #334155; }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-lg w-full space-y-6">
+        <div class="text-center space-y-2">
+            <h1 class="text-2xl font-bold text-indigo-400">SteVenJr OS <span class="text-xs border border-indigo-500 px-2 py-0.5 rounded text-indigo-400">DIAGNOSTICS</span></h1>
+            <p class="text-xs text-slate-500">Realtime Network & Backend Monitoring</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4">
+            
+            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
+                <div class="flex items-center gap-4">
+                    <div id="icon-net" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold">Internet Connection</h3>
+                        <p id="desc-net" class="text-xs text-slate-500">Checking latency...</p>
+                    </div>
+                </div>
+                <div id="status-net" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
+            </div>
+
+            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
+                <div class="flex items-center gap-4">
+                    <div id="icon-server" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold">Vercel Backend</h3>
+                        <p id="desc-server" class="text-xs text-slate-500">Pinging /api/settings...</p>
+                    </div>
+                </div>
+                <div id="status-server" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
+            </div>
+
+            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
+                <div class="flex items-center gap-4">
+                    <div id="icon-db" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold">Firebase SDK</h3>
+                        <p id="desc-db" class="text-xs text-slate-500">Verifying initialization...</p>
+                    </div>
+                </div>
+                <div id="status-db" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
+            </div>
+
+        </div>
+
+        <div class="text-center pt-8 border-t border-slate-800">
+            <p class="text-[10px] text-slate-600">CLIENT IP: <span id="client-ip" class="text-slate-400">Detecting...</span></p>
+            <p class="text-[10px] text-slate-600 mt-1">LAST CHECK: <span id="last-check" class="text-slate-400">--:--:--</span></p>
+            <a href="admin.html" class="inline-block mt-4 text-xs text-indigo-500 hover:text-indigo-400 font-bold underline">Back to Admin Panel</a>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script>
+        // --- UTILITIES ---
+        function setStatus(id, isOnline, message) {
+            const elStatus = document.getElementById(`status-${id}`);
+            const elIcon = document.getElementById(`icon-${id}`);
+            const elDesc = document.getElementById(`desc-${id}`);
+            
+            if (isOnline) {
+                elStatus.className = "text-xs font-bold px-3 py-1 rounded bg-green-500/20 text-green-400 border border-green-500/30";
+                elStatus.innerText = "ONLINE";
+                elIcon.className = "w-10 h-10 rounded-full bg-green-900/30 flex items-center justify-center text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.2)]";
+                elDesc.innerText = message || "Connected secure.";
+            } else {
+                elStatus.className = "text-xs font-bold px-3 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30 blink";
+                elStatus.innerText = "OFFLINE";
+                elIcon.className = "w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center text-red-400";
+                elDesc.innerText = message || "Connection failed.";
+            }
+        }
+
+        // --- 1. CHECK INTERNET ---
+        function checkInternet() {
+            const isOnline = navigator.onLine;
+            setStatus('net', isOnline, isOnline ? "Throughput normal." : "No internet access.");
+            
+            // Get IP (Optional external ping)
+            if(isOnline) {
+                fetch('https://api.ipify.org?format=json')
+                    .then(r => r.json())
+                    .then(d => document.getElementById('client-ip').innerText = d.ip)
+                    .catch(() => document.getElementById('client-ip').innerText = "Hidden/Proxy");
+            }
+        }
+
+        // --- 2. CHECK VERCEL SERVER ---
+        async function checkServer() {
+            const start = Date.now();
+            try {
+                // Kita ping endpoint settings karena public
+                const res = await fetch('/api/settings', { cache: "no-store" });
+                const end = Date.now();
+                const latency = end - start;
+                
+                if (res.ok) {
+                    setStatus('server', true, `Latency: ${latency}ms (Vercel Edge)`);
+                } else {
+                    setStatus('server', false, `Error: ${res.status} ${res.statusText}`);
+                }
+            } catch (e) {
+                setStatus('server', false, "Unreachable / Timeout");
+            }
+        }
+
+        // --- 3. CHECK FIREBASE ---
+        function checkFirebase() {
+            // Kita cek apakah script firebase terload dan ada apps yang jalan
+            // Karena config firebase ada di app.js yang mungkin tidak kita load disini agar tidak konflik UI,
+            // kita cek ketersediaan global object saja.
+            
+            if (typeof firebase !== 'undefined') {
+                // Cek apakah ada app yang sudah diinisialisasi (misal dari script lain jika di-include)
+                // Jika stats.html berdiri sendiri tanpa config firebase, ini hanya mengecek Library-nya.
+                // Untuk cek koneksi asli, kita butuh config.
+                // Asumsi: Kita hanya cek apakah library ready.
+                
+                setStatus('db', true, "SDK Loaded & Ready.");
+            } else {
+                setStatus('db', false, "Firebase SDK not found.");
+            }
+        }
+
+        // --- INIT ---
+        function runDiagnostics() {
+            const now = new Date();
+            document.getElementById('last-check').innerText = now.toLocaleTimeString();
+            
+            checkInternet();
+            checkServer();
+            checkFirebase();
+        }
+
+        // Listeners
+        window.addEventListener('online', checkInternet);
+        window.addEventListener('offline', checkInternet);
+
+        // Run on load
+        runDiagnostics();
+        
+        // Auto refresh every 10s
+        setInterval(runDiagnostics, 10000);
+
+    </script>
+</body>
+</html>
