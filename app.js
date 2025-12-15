@@ -118,6 +118,41 @@ function updateDbStatusUI() {
     }
 }
 
+// --- MAINTENANCE TOGGLE FUNCTION ---
+window.toggleMaintenance = async function() {
+    const newState = !isMaintenanceMode;
+    isMaintenanceMode = newState;
+    updateMaintenanceUI(); // Update UI langsung biar cepat
+
+    try {
+        await fetch('/api/maintenance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_maintenance: newState })
+        });
+        // Reload biar logika redirect jalan (opsional, tapi bagus buat admin)
+        if(newState) alert("Mode Maintenance Aktif");
+    } catch (e) {
+        alert("Gagal update maintenance mode!");
+        isMaintenanceMode = !newState; // Balikin kalau gagal
+        updateMaintenanceUI();
+    }
+}
+
+function updateMaintenanceUI() {
+    const btn = document.getElementById('btn-mt-toggle');
+    const txt = document.getElementById('mt-status-text');
+    if(!btn) return;
+
+    if (isMaintenanceMode) {
+        btn.className = "bg-orange-500 text-white hover:bg-orange-600 border border-orange-600 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 animate-pulse";
+        txt.innerText = "MT ON";
+    } else {
+        btn.className = "bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2";
+        txt.innerText = "MT OFF";
+    }
+}
+
 // --- HELPER BENTROK ---
 function isTimeConflict(time1, time2) {
     try {
@@ -473,5 +508,6 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
 
