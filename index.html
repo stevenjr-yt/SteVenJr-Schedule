@@ -22,13 +22,6 @@
         body { background-color: #f8fafc; }
         .widget-scroll::-webkit-scrollbar { width: 4px; }
         .widget-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        
-        /* Animasi Alert */
-        @keyframes slideDown {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .alert-anim { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
@@ -85,16 +78,15 @@
 
         <div class="text-left w-full pl-2">
             <h2 class="text-xs font-bold mb-6 text-gray-400 uppercase tracking-widest ml-1">Timeline Hari Ini</h2>
-            <div id="today-schedule-container" class="space-y-0 min-h-[100px] border-l-2 border-dashed border-gray-200 ml-3 pl-6 pb-2 relative">
-                <p class="text-center text-gray-400 text-xs py-5 -ml-6">Memuat data...</p>
+            <div id="today-schedule-container" class="space-y-0 min-h-[100px]">
+                <p class="text-center text-gray-400 text-xs py-5">Memuat data...</p>
             </div>
         </div>
     </div>
 
     <div id="schedule-view" class="hidden w-[95%] max-w-4xl mt-5 pb-20 animate-fade-in-up">
         
-        <div id="conflict-alert" class="hidden mb-6 mx-auto max-w-lg alert-anim">
-            </div>
+        <div id="conflict-alert" class="hidden mb-6 mx-auto max-w-lg"></div>
 
         <header class="bg-white p-5 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border border-gray-100 sticky top-5 z-40">
             <div class="text-center md:text-left">
@@ -109,7 +101,7 @@
                 </div>
                 
                 <button onclick="checkConflictsUI()" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-4 py-2.5 rounded-xl font-bold transition text-xs shadow-sm flex items-center gap-2 whitespace-nowrap">
-                    <i class="fas fa-exclamation-triangle"></i> Cek Bentrok
+                    <i class="fas fa-exclamation-triangle"></i> Cek
                 </button>
 
                 <button onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition text-xs shadow-lg">
@@ -128,13 +120,31 @@
     </div>
 
     <script src="app.js"></script>
-    
     <script>
-        // === LOGIC TAMPILAN KHUSUS ===
+        function updateDashboardMenu() {
+            const utsBtn = document.getElementById('btn-menu-uts');
+            const uasBtn = document.getElementById('btn-menu-uas');
+            const container = document.getElementById('exam-buttons-container');
+            
+            const showUts = localStorage.getItem('show_uts') === 'true';
+            const showUas = localStorage.getItem('show_uas') === 'true';
 
-        // 1. WIDGET TIMELINE (GARIS VERTIKAL)
+            if (utsBtn) utsBtn.classList.add('hidden');
+            if (uasBtn) uasBtn.classList.add('hidden');
+            if (container) container.classList.add('hidden');
+
+            if (showUts || showUas) {
+                if(container) container.classList.remove('hidden');
+                if (showUts && utsBtn) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
+                if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
+            }
+        }
+        document.addEventListener('DOMContentLoaded', updateDashboardMenu);
+        window.addEventListener('storage', (event) => { if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu(); });
+
+        // === WIDGET TIMELINE YANG DIPERBAIKI JARAKNYA ===
         function rowWidget(i, c) {
-            // Mapping Warna
+            // Warna Card
             const colors = {
                 'orange': 'bg-orange-50 text-orange-900 border-orange-200',
                 'purple': 'bg-purple-50 text-purple-900 border-purple-200',
@@ -142,6 +152,7 @@
                 'green':  'bg-emerald-50 text-emerald-900 border-emerald-200'
             }[c] || 'bg-gray-50 text-gray-900 border-gray-200';
 
+            // Warna Titik
             const dotColor = {
                 'orange': 'bg-orange-400',
                 'purple': 'bg-purple-400',
@@ -151,9 +162,10 @@
 
             const detail = (c === 'green') ? (i.keterangan || '-') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
 
+            // PERBAIKAN SPACE: Gunakan pb-8 pada container luar agar garis nyambung tapi kartu berjarak
             return `
-            <div class="relative mb-6 group last:mb-0">
-                <div class="absolute -left-[31px] top-4 w-4 h-4 rounded-full border-[3px] border-white ${dotColor} shadow-sm z-10"></div>
+            <div class="relative pl-6 pb-8 group last:pb-0 border-l-2 border-gray-100 last:border-0 ml-2">
+                <div class="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full ring-4 ring-white ${dotColor}"></div>
                 
                 <div class="${colors} border p-4 rounded-2xl shadow-sm relative transition hover:-translate-y-1 hover:shadow-md">
                     <div class="flex justify-between items-start">
@@ -172,48 +184,8 @@
             </div>`;
         }
 
-        // 2. Logic Update Tombol Menu
-        function updateDashboardMenu() {
-            const utsBtn = document.getElementById('btn-menu-uts');
-            const uasBtn = document.getElementById('btn-menu-uas');
-            const container = document.getElementById('exam-buttons-container');
-
-            // Ambil dari LocalStorage (disinkronkan oleh app.js)
-            const showUts = localStorage.getItem('show_uts') === 'true';
-            const showUas = localStorage.getItem('show_uas') === 'true';
-
-            if (utsBtn) utsBtn.classList.add('hidden');
-            if (uasBtn) uasBtn.classList.add('hidden');
-            if (container) container.classList.add('hidden');
-
-            if (showUts || showUas) {
-                if(container) container.classList.remove('hidden');
-                if (showUts && utsBtn) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
-                if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
-            }
-        }
-
-        // Listener
-        document.addEventListener('DOMContentLoaded', updateDashboardMenu);
-        window.addEventListener('storage', (event) => {
-            if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu();
-        });
-
-        // Helper Navigasi
-        function switchView(type) {
-            document.getElementById('main-dashboard').style.display = 'none';
-            document.getElementById('schedule-view').style.display = 'block';
-            window.scrollTo(0,0);
-            if(window.loadScheduleData) window.loadScheduleData(type);
-        }
-        
-        function searchSchedule() {
-            const input = document.getElementById('searchInput').value.toLowerCase();
-            const rows = document.querySelectorAll('#schedule-table-body tr');
-            rows.forEach(row => {
-                row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none';
-            });
-        }
+        function switchView(type) { document.getElementById('main-dashboard').style.display = 'none'; document.getElementById('schedule-view').style.display = 'block'; window.scrollTo(0,0); if(window.loadScheduleData) window.loadScheduleData(type); }
+        function searchSchedule() { const input = document.getElementById('searchInput').value.toLowerCase(); const rows = document.querySelectorAll('#schedule-table-body tr'); rows.forEach(row => { row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none'; }); }
     </script>
 </body>
 </html>
