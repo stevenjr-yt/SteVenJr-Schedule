@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
 
-// 1. Inisialisasi Firebase Admin (SAMA PERSIS DENGAN SCHEDULE.JS)
+// Inisialisasi Firebase (Standard Vercel)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -17,40 +17,58 @@ const db = admin.firestore();
 
 export default async function handler(req, res) {
   const { method } = req;
+  const { category, id } = req.query;
 
-  // --- GET: Ambil Status Toggle (Dipakai app.js saat loading) ---
+  // GET: Ambil Data Jadwal
   if (method === 'GET') {
     try {
-      const doc = await db.collection('config').doc('display_mode').get();
+      if (!category) return res.status(400).json({ error: 'Butuh kategori' });
       
-      if (!doc.exists) {
-        // Default Mati semua jika belum pernah disetting
-        return res.status(200).json({ show_uts: false, show_uas: false });
-      }
+      const snapshot = await db.collection(category).get();
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
-      return res.status(200).json(doc.data());
+      return res.status(200).json(data);
     } catch (error) {
-      return res.status(500).json({ error: 'Gagal mengambil settings' });
+      console.error("Firebase Error:", error);
+      return res.status(500).json({ error: 'Database Error' });
     }
   }
 
-  // --- POST: Update Status Toggle (Dipakai Admin Panel) ---
+  // POST: Tambah Jadwal
   if (method === 'POST') {
     try {
-      const { show_uts, show_uas } = req.body;
+      const authHeader = req.headers['x-admin-password'];
+      if (authHeader !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
-      // Simpan ke collection 'config', dokumen 'display_mode'
-      await db.collection('config').doc('display_mode').set({
-        show_uts: Boolean(show_uts),
-        show_uas: Boolean(show_uas)
-      }, { merge: true });
+      const body = req.body;
+      const targetCollection = body.kategori || 'daily';
+      delete body.kategori; 
 
-      return res.status(200).json({ message: 'Settings saved', show_uts, show_uas });
+      await db.collection(targetCollection).add(body);
+      return res.status(200).json({ message: 'Saved' });
     } catch (error) {
-      return res.status(500).json({ error: 'Gagal menyimpan settings' });
+      return res.status(500).json({ error: 'Save Failed' });
     }
   }
 
-  // Method lain reject
-  return res.status(405).json({ error: 'Method not allowed' });
+  // DELETE: Hapus Jadwal
+  if (method === 'DELETE') {
+    try {
+      const authHeader = req.headers['x-admin-password'];
+      if (authHeader !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      if (!id || !category) return res.status(400).json({ error: 'Missing params' });
+
+      await db.collection(category).doc(id).delete();
+      return res.status(200).json({ message: 'Deleted' });
+    } catch (error) {
+      return res.status(500).json({ error: 'Delete Failed' });
+    }
+  }
 }
