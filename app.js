@@ -8,6 +8,7 @@ let globalSettings = { show_uts: false, show_uas: false };
 
 // STATE: DB Connected diambil dari Server, bukan LocalStorage
 let isDbConnected = true; 
+let isMaintenanceMode = false; // VARIABLE BARU
 
 document.addEventListener('DOMContentLoaded', () => {
     // Cek Login Local
@@ -39,13 +40,27 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- CORE: CEK STATUS DATABASE KE SERVER ---
 async function checkSystemStatus() {
     try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        isDbConnected = data.is_active; // Update variable global
+        // 1. Cek DB Status
+        const resDb = await fetch('/api/status');
+        const dataDb = await resDb.json();
+        isDbConnected = dataDb.is_active;
         updateDbStatusUI();
+
+        // 2. Cek Maintenance Status (BARU)
+        const resMt = await fetch('/api/maintenance');
+        const dataMt = await resMt.json();
+        isMaintenanceMode = dataMt.is_maintenance;
+        updateMaintenanceUI();
+
+        // LOGIKA REDIRECT:
+        // Jika Maintenance ON, DAN halaman ini BUKAN Admin Panel -> Lempar ke maintenance.html
+        if (isMaintenanceMode && !document.getElementById('admin-panel')) {
+            window.location.href = 'maintenance.html';
+        }
+
     } catch (e) {
         console.error("Gagal cek status sistem");
-        isDbConnected = true; // Fallback biar ga error total
+        isDbConnected = true; 
     }
 }
 
@@ -458,4 +473,5 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
