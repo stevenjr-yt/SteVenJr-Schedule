@@ -9,7 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Poppins', 'sans-serif'] }, colors: { primary: '#4f46e5' } } } }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] },
+                    colors: { primary: '#4f46e5' }
+                }
+            }
+        }
     </script>
     <style>
         body { background-color: #f8fafc; }
@@ -26,9 +33,11 @@
     </div>
 
     <div id="main-dashboard" class="w-[95%] max-w-md transition-all duration-300">
+        
         <div class="text-center mb-10">
             <h1 class="text-3xl font-bold text-indigo-900 tracking-tight mb-1">SteVenJr <span class="text-indigo-500">OS</span></h1>
             <p class="text-xs text-gray-400 font-medium mb-8">Personal Life Assistant</p>
+            
             <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-indigo-50 relative overflow-hidden group">
                 <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 group-hover:h-2 transition-all"></div>
                 <p id="current-date" class="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-2">...</p>
@@ -38,10 +47,12 @@
 
         <div class="bg-slate-900 rounded-2xl p-6 mb-8 text-white shadow-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5"><i class="fas fa-bolt text-6xl"></i></div>
+            
             <div class="flex justify-between items-center mb-4 relative z-10">
                 <span class="text-xs font-bold text-slate-300 uppercase tracking-wider"><i class="fas fa-chart-line text-yellow-400 mr-2"></i>Daily Load</span>
                 <span id="energy-level" class="text-2xl font-black text-white">0%</span>
             </div>
+            
             <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden relative z-10">
                 <div id="energy-bar" class="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style="width: 0%"></div>
             </div>
@@ -90,6 +101,7 @@
 
     <script src="app.js"></script>
     <script>
+        // === LOGIC FRONTEND HELPER ===
         function updateDashboardMenu() {
             const utsBtn = document.getElementById('btn-menu-uts');
             const uasBtn = document.getElementById('btn-menu-uas');
@@ -107,9 +119,13 @@
                 if (showUas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
             }
         }
-        document.addEventListener('DOMContentLoaded', updateDashboardMenu);
-        window.addEventListener('storage', (event) => { if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu(); });
 
+        document.addEventListener('DOMContentLoaded', updateDashboardMenu);
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'show_uts' || event.key === 'show_uas') updateDashboardMenu();
+        });
+
+        // Widget Timeline (Untuk Tampilan Dashboard Depan)
         function rowWidget(i, c) {
             let colors = {
                 'orange': 'border-orange-500 bg-orange-50/50 text-orange-900',
@@ -117,8 +133,10 @@
                 'blue':   'border-indigo-500 bg-indigo-50/50 text-indigo-900',
                 'green':  'border-emerald-500 bg-emerald-50/50 text-emerald-900'
             }[c] || 'border-gray-500 bg-gray-50 text-gray-900';
+
             let detail = (c === 'green') ? (i.keterangan || 'Agenda Pribadi') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
             let icon = (c === 'green') ? 'fa-user' : 'fa-book';
+
             return `
             <div class="relative pl-4 group">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-100 rounded-full group-last:bottom-auto group-last:h-full"></div>
@@ -137,10 +155,13 @@
                 </div>
             </div>`;
         }
+
+        // Helper Navigasi Halaman
         function switchView(type) {
             document.getElementById('main-dashboard').style.display = 'none';
             document.getElementById('schedule-view').style.display = 'block';
             window.scrollTo(0,0);
+            // PANGGIL FUNGSI YANG ADA DI APP.JS
             if(window.loadScheduleData) window.loadScheduleData(type);
         }
         function searchSchedule() {
