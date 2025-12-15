@@ -43,7 +43,7 @@
         </div>
 
         <div class="grid grid-cols-1 gap-3 mb-10">
-            <div class="flex gap-3">
+            <div id="exam-buttons-container" class="flex gap-3 hidden">
                 <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-600 text-white py-4 rounded-xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm">
                     <i class="fas fa-file-alt"></i> UTS
                 </button>
@@ -115,13 +115,61 @@
         <p id="conflict-alert" class="hidden mt-6 px-6 py-4 rounded-xl relative text-center font-bold border-2 text-lg shadow-md transition-all"></p>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="app.js"></script>
     
     <script>
-        // LOGIC KHUSUS WIDGET BESAR
-        // Ini override fungsi renderWidgetRow di app.js biar tampilan di Index jadi GEDE dan DETAIL
+        // ==========================================
+        // 1. LOGIC TOGGLE MENU TOMBOL (PERBAIKAN)
+        // ==========================================
+        function updateDashboardMenu() {
+            const utsBtn = document.getElementById('btn-menu-uts');
+            const uasBtn = document.getElementById('btn-menu-uas');
+            const container = document.getElementById('exam-buttons-container');
+
+            // Ambil status dari LocalStorage (disimpan oleh Admin Panel)
+            const showUts = localStorage.getItem('show_uts') === 'true';
+            const showUas = localStorage.getItem('show_uas') === 'true';
+
+            // Reset dulu (sembunyikan semua)
+            if (utsBtn) utsBtn.classList.add('hidden');
+            if (uasBtn) uasBtn.classList.add('hidden');
+            if (container) container.classList.add('hidden');
+
+            // Cek kondisi
+            if (utsBtn && uasBtn && container) {
+                // Tampilkan container jika salah satu aktif
+                if (showUts || showUas) {
+                    container.classList.remove('hidden');
+                }
+
+                // Tampilkan tombol UTS
+                if (showUts) {
+                    utsBtn.classList.remove('hidden');
+                    utsBtn.classList.add('flex'); // Pastikan display flex aktif
+                }
+
+                // Tampilkan tombol UAS
+                if (showUas) {
+                    uasBtn.classList.remove('hidden');
+                    uasBtn.classList.add('flex'); // Pastikan display flex aktif
+                }
+            }
+        }
+
+        // Jalankan saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', updateDashboardMenu);
+
+        // Jalankan saat ada perubahan di tab Admin (Auto-Sync)
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'show_uts' || event.key === 'show_uas') {
+                updateDashboardMenu();
+            }
+        });
+
+
+        // ==========================================
+        // 2. LOGIC CUSTOM WIDGET BESAR
+        // ==========================================
         
         function rowWidget(i, c) {
             // Tentukan Warna Border & Background
@@ -132,7 +180,7 @@
                 'green':  'border-green-500 bg-green-50 text-green-900'
             }[c];
 
-            // Detail Logic: Kalau personal ambil 'keterangan', akademik ambil 'dosen' & 'kelas'
+            // Detail Logic
             let detailUtama = i.ruangan || 'Online / TBD';
             let detailTambahan = '';
 
@@ -144,12 +192,12 @@
                 detailTambahan = `${kelas} ${dosen}`;
             }
 
-            // HTML WIDGET YANG BARU (LEBIH BESAR & DETAIL)
+            // HTML WIDGET
             return `
             <div class="${colors} border-l-8 p-5 rounded-xl mb-4 shadow-sm hover:shadow-md transition relative overflow-hidden group">
                 <div class="flex justify-between items-start">
                     <div class="flex-1 pr-4">
-                        <h4 class="font-extrabold text-lg leading-tight mb-2">${i.matkul || i.nama_kegiatan}</h4>
+                        <h4 class="font-extrabold text-lg leading-tight mb-2">${i.matkul || i.nama_kegiatan || getSafeTitle(i)}</h4>
                         
                         <div class="text-sm opacity-80 space-y-1">
                             <p class="flex items-center gap-2 font-semibold">
