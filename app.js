@@ -412,6 +412,10 @@ function updateClock() {
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+// ==========================================
+// MODIFIKASI FUNGSI INI DI app.js
+// ==========================================
+
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
@@ -445,6 +449,14 @@ async function loadTodaySchedule() {
             ...daily.filter(d => d.hari === hariIni).map(i => ({...i, c: 'blue', label: 'KULIAH'})),
             ...personal.filter(p => p.tanggal === tglIni).map(i => ({...i, c: 'green', label: 'AGENDA'}))
         ];
+
+        // === TAMBAHAN LOGIKA SORTING (Supaya urut jam pagi ke malam) ===
+        combinedToday.sort((a, b) => {
+            // Menggunakan localeCompare untuk membandingkan string waktu (misal: "07:30" vs "09:00")
+            // Ini akan mengurutkan dari waktu terkecil ke terbesar secara otomatis
+            return a.waktu.localeCompare(b.waktu);
+        });
+        // ================================================================
 
         if (combinedToday.length === 0) {
             container.innerHTML = `
@@ -508,3 +520,4 @@ function checkToggles() {
         });
     }
 }
+
