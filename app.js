@@ -6,7 +6,6 @@
 let adminPassword = null; 
 let adminEmail = null;
 
-// DEFINISI FUNGSI ADMIN PANEL
 function showAdminPanel() {
     const loginForm = document.getElementById('login-form');
     const adminPanel = document.getElementById('admin-panel');
@@ -16,9 +15,12 @@ function showAdminPanel() {
         adminPanel.style.display = 'block';
         loadAdminData('daily'); 
         
-        // FITUR BARU: Load Data Kesehatan & Checklist
+        // Init Fitur Kesehatan
         initHealthTracker();
         loadDailyChecklist();
+        
+        // Init Toggle Listener (Agar Dashboard di Tab lain update)
+        initAdminToggles();
     }
 }
 
@@ -32,27 +34,25 @@ document.addEventListener('DOMContentLoaded', () => {
         showAdminPanel();
     }
 
-    // Pemicu Widget Beranda (Dashboard User)
     if (document.getElementById('today-schedule-container')) {
         updateClock();
         setInterval(updateClock, 1000);
         loadTodaySchedule();
-        checkToggles();
+        checkToggles(); // Untuk Dashboard View
     }
 
-    // Auto Sync
+    // Auto Sync antar Tab
     window.addEventListener('storage', (event) => {
         if (event.key === 'show_uts' || event.key === 'show_uas') {
             if (window.loadTodaySchedule) loadTodaySchedule();
         }
     });
 
-    // Cek Alert Tidur (Jalan setiap menit)
     setInterval(checkSleepAlert, 60000);
 });
 
 // ==========================================
-// LOGIC LOGIN & AUTH
+// 1. LOGIC LOGIN
 // ==========================================
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
@@ -63,7 +63,7 @@ if (loginBtn) {
         const errorMsg = document.getElementById('login-error');
         errorMsg.style.display = 'none';
 
-        if(!email || !pass) { errorMsg.innerText = "Isi semua field!"; errorMsg.style.display = 'block'; return; }
+        if(!email || !pass) { errorMsg.innerText = "Isi email & password!"; errorMsg.style.display = 'block'; return; }
 
         loginBtn.innerText = "Memeriksa..."; loginBtn.disabled = true;
 
@@ -81,7 +81,7 @@ if (loginBtn) {
         } catch (err) {
             errorMsg.innerText = err.message; errorMsg.style.display = 'block';
         } finally {
-            loginBtn.innerText = "MASUK"; loginBtn.disabled = false;
+            loginBtn.innerText = "UNLOCK"; loginBtn.disabled = false;
         }
     });
 }
@@ -89,7 +89,7 @@ if (loginBtn) {
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
-        if(confirm("Logout?")) {
+        if(confirm("Logout dari sistem?")) {
             localStorage.removeItem('admin_email'); localStorage.removeItem('admin_password');
             location.reload();
         }
@@ -97,34 +97,57 @@ if (btnLogout) {
 }
 
 // ==========================================
-// FITUR BARU: HEALTH & SLEEP TRACKER
+// 2. ADMIN TOGGLE LISTENER (PENTING!)
 // ==========================================
+function initAdminToggles() {
+    const tUts = document.getElementById('toggle-uts');
+    const tUas = document.getElementById('toggle-uas');
 
+    if (tUts) {
+        tUts.checked = localStorage.getItem('show_uts') === 'true';
+        tUts.addEventListener('change', (e) => {
+            localStorage.setItem('show_uts', e.target.checked);
+        });
+    }
+    if (tUas) {
+        tUas.checked = localStorage.getItem('show_uas') === 'true';
+        tUas.addEventListener('change', (e) => {
+            localStorage.setItem('show_uas', e.target.checked);
+        });
+    }
+}
+
+// ==========================================
+// 3. HEALTH, SLEEP & ENERGY ALGORITHM
+// ==========================================
 function initHealthTracker() {
-    // 1. Load BMI
     calculateBMI();
     
-    // 2. Load Sleep Data
+    // Load Checkbox Makan
+    document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
+    document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2') === 'true';
+    document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3') === 'true';
+
+    // Load Data Tidur
     const sleepStart = localStorage.getItem('steven_sleep_start');
     const wakeTime = localStorage.getItem('steven_wake_time');
     
     if (sleepStart && !wakeTime) {
-        // Sedang Tidur
         updateSleepUI(true, new Date(parseInt(sleepStart)));
     } else if (sleepStart && wakeTime) {
-        // Sudah Bangun (Tampilkan Data Terakhir)
         const s = new Date(parseInt(sleepStart));
         const w = new Date(parseInt(wakeTime));
         updateSleepUI(false, s, w);
+    } else {
+        calculateTotalEnergy(0); // Default 0 jika belum ada data
     }
 
-    // 3. Load Water
     const water = localStorage.getItem('steven_water') || 0;
     document.getElementById('water-count').innerText = water;
 }
 
 function calculateBMI() {
-    const heightCm = 180; // Hardcoded sesuai request
+    const heightCm = 180; 
     const weightKg = parseFloat(document.getElementById('input-bb').value) || 52;
     const heightM = heightCm / 100;
     
@@ -132,21 +155,11 @@ function calculateBMI() {
     const resultEl = document.getElementById('bmi-result');
     
     let status = "";
-    let color = "";
+    if (bmi < 18.5) status = "UNDERWEIGHT";
+    else if (bmi >= 18.5 && bmi < 24.9) status = "IDEAL";
+    else status = "OVERWEIGHT";
 
-    if (bmi < 18.5) {
-        status = "UNDERWEIGHT (Kurang Berat)";
-        color = "bg-yellow-100 text-yellow-700";
-    } else if (bmi >= 18.5 && bmi < 24.9) {
-        status = "IDEAL (Mantap!)";
-        color = "bg-green-100 text-green-700";
-    } else {
-        status = "OVERWEIGHT";
-        color = "bg-red-100 text-red-700";
-    }
-
-    resultEl.innerText = `BMI: ${bmi} - ${status}`;
-    resultEl.className = `text-[10px] font-bold p-2 rounded text-center ${color}`;
+    resultEl.innerText = `BMI: ${bmi} (${status})`;
 }
 
 function updateWater(amount) {
@@ -164,28 +177,23 @@ function toggleSleep(isSleeping) {
     if (isSleeping) {
         // MAU TIDUR
         let sleepTime = now;
-        
-        // Logika "Lupa Ceklis Tidur"
-        // Jika ceklis tidur jam 3 pagi - 10 pagi, kemungkinan lupa absen semalam
         const currentHour = now.getHours();
+        
+        // Logika Lupa Absen (Jika input jam 03:00 - 10:00 pagi)
         if (currentHour >= 3 && currentHour <= 10) {
-            const confirmLupa = confirm("Sudah jam segini. Apakah kamu lupa absen tidur semalam? \nOK = Ya (Input Manual), Cancel = Tidak (Baru mau tidur sekarang/Begadang)");
-            
+            const confirmLupa = confirm("Lupa absen tidur semalam? OK untuk input jam manual.");
             if (confirmLupa) {
-                const manualTime = prompt("Masukkan jam tidur sebenarnya (Format HH:MM, contoh 23:30):");
+                const manualTime = prompt("Masukkan jam tidur (HH:MM):", "23:00");
                 if (manualTime) {
                     const [h, m] = manualTime.split(':');
                     sleepTime.setHours(h, m, 0);
-                    // Jika jam input > jam sekarang (misal input 23:00 padahal skrg 08:00), berarti kemarin
-                    if (parseInt(h) > currentHour) {
-                        sleepTime.setDate(sleepTime.getDate() - 1);
-                    }
-                } else return; // Batal
+                    // Jika jam input > jam sekarang, berarti kemarin
+                    if (parseInt(h) > currentHour) sleepTime.setDate(sleepTime.getDate() - 1);
+                } else return;
             }
         }
-
         localStorage.setItem('steven_sleep_start', sleepTime.getTime());
-        localStorage.removeItem('steven_wake_time'); // Reset bangun
+        localStorage.removeItem('steven_wake_time');
         updateSleepUI(true, sleepTime);
 
     } else {
@@ -193,25 +201,20 @@ function toggleSleep(isSleeping) {
         let wakeTime = now;
         const sleepStartVal = localStorage.getItem('steven_sleep_start');
         
-        if (!sleepStartVal) {
-            alert("Kamu belum absen tidur!");
-            return;
-        }
+        if (!sleepStartVal) { alert("Anda belum absen tidur!"); return; }
 
-        // Logika "Lupa Ceklis Bangun"
-        // Jika selisih waktu > 12 jam, curiga lupa
+        // Logika Lupa Bangun (>14 jam)
         const diffHours = (wakeTime - parseInt(sleepStartVal)) / (1000 * 60 * 60);
         if (diffHours > 14) {
-             const confirmLupaBangun = confirm("Waktu tidur tercatat > 14 jam. Lupa absen bangun? \nOK = Ya (Input Manual), Cancel = Tidak");
+             const confirmLupaBangun = confirm("Tidur > 14 jam? Lupa absen bangun?");
              if (confirmLupaBangun) {
-                const manualWake = prompt("Masukkan jam bangun sebenarnya (HH:MM):");
+                const manualWake = prompt("Jam bangun (HH:MM):", "06:00");
                 if (manualWake) {
                     const [h, m] = manualWake.split(':');
                     wakeTime.setHours(h, m, 0);
                 } else return;
              }
         }
-
         localStorage.setItem('steven_wake_time', wakeTime.getTime());
         updateSleepUI(false, new Date(parseInt(sleepStartVal)), wakeTime);
     }
@@ -222,68 +225,123 @@ function updateSleepUI(isSleeping, sleepDate, wakeDate = null) {
     const btnWake = document.getElementById('btn-wake');
     const statusText = document.getElementById('sleep-status-text');
     const durationText = document.getElementById('sleep-duration-text');
-    const energyLevel = document.getElementById('energy-level');
-
     const formatTime = (d) => d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
 
     if (isSleeping) {
-        // UI Mode Tidur
-        btnSleep.classList.add('opacity-50', 'cursor-not-allowed');
-        btnSleep.onclick = null;
+        btnSleep.classList.add('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = null;
         document.getElementById('sleep-time-display').innerText = formatTime(sleepDate);
         
-        btnWake.classList.remove('opacity-50', 'cursor-not-allowed');
-        btnWake.onclick = () => toggleSleep(false);
+        btnWake.classList.remove('opacity-50', 'cursor-not-allowed'); btnWake.onclick = () => toggleSleep(false);
         document.getElementById('wake-time-display').innerText = "--:--";
+        statusText.innerText = "Status: Sleeping...";
+        durationText.innerText = "Zzz...";
+        
+        calculateTotalEnergy(0); // Reset energi saat tidur
 
-        statusText.innerText = "Zzz... Sedang Tidur";
-        durationText.innerText = "Istirahat yang cukup ya!";
-        energyLevel.innerText = "Charging...";
     } else {
-        // UI Mode Bangun (Hasil)
-        btnSleep.classList.remove('opacity-50', 'cursor-not-allowed');
-        btnSleep.onclick = () => toggleSleep(true);
+        btnSleep.classList.remove('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = () => toggleSleep(true);
         document.getElementById('sleep-time-display').innerText = formatTime(sleepDate);
 
-        btnWake.classList.add('opacity-50', 'cursor-not-allowed');
-        btnWake.onclick = null;
+        btnWake.classList.add('opacity-50', 'cursor-not-allowed'); btnWake.onclick = null;
         if(wakeDate) document.getElementById('wake-time-display').innerText = formatTime(wakeDate);
 
-        statusText.innerText = "Siap beraktivitas!";
+        statusText.innerText = "Status: Active";
         
-        // Hitung Durasi & Energi
         if (sleepDate && wakeDate) {
             const diffMs = wakeDate - sleepDate;
             const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
             const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
             
-            durationText.innerText = `Durasi: ${diffHrs} Jam ${diffMins} Menit`;
-
-            // Simulasi Energi (8 jam = 100%)
-            let energy = Math.round((diffHrs / 8) * 100);
-            if (energy > 100) energy = 100;
-            energyLevel.innerText = `${energy}%`;
+            durationText.innerText = `Tidur: ${diffHrs}j ${diffMins}m`;
+            
+            // Hitung Energi Dasar dari Durasi Tidur
+            // Rumus: (Jam Tidur / 8) * 100. Max 100%.
+            const hoursFloat = diffHrs + (diffMins/60);
+            let baseEnergy = Math.round((hoursFloat / 8) * 100);
+            if (baseEnergy > 100) baseEnergy = 100;
+            
+            calculateTotalEnergy(baseEnergy);
         }
+    }
+}
+
+// === RUMUS ENERGI STEVENJR ===
+function calculateTotalEnergy(baseEnergy) {
+    // 1. Ambil Base Energy (dari Tidur)
+    // Jika fungsi dipanggil tanpa argumen, ambil dari tampilan terakhir/default
+    let currentEnergy = baseEnergy;
+    
+    // 2. Hitung Pengurangan (Drain) dari Checklist Kegiatan
+    // Setiap item yang dicentang mengurangi 5% energi
+    const checkboxes = document.querySelectorAll('.check-anim');
+    let completedTasks = 0;
+    checkboxes.forEach(cb => {
+        if (cb.checked) completedTasks++;
+    });
+    const energyDrain = completedTasks * 5; 
+
+    // 3. Hitung Penambahan (Refuel) dari Makanan
+    // Setiap kali makan nambah 15%
+    let foodEnergy = 0;
+    if (document.getElementById('eat-1').checked) foodEnergy += 15;
+    if (document.getElementById('eat-2').checked) foodEnergy += 15;
+    if (document.getElementById('eat-3').checked) foodEnergy += 15;
+
+    // 4. Kalkulasi Akhir
+    let finalEnergy = currentEnergy - energyDrain + foodEnergy;
+    
+    // Batas Max 100, Min 0
+    if (finalEnergy > 100) finalEnergy = 100;
+    if (finalEnergy < 0) finalEnergy = 0;
+
+    // Update UI
+    const bar = document.getElementById('energy-bar');
+    const text = document.getElementById('energy-level');
+    
+    if (bar && text) {
+        bar.style.width = `${finalEnergy}%`;
+        text.innerText = `${finalEnergy}%`;
+        
+        // Ubah warna bar sesuai level
+        bar.className = `h-full transition-all duration-1000 ${
+            finalEnergy > 70 ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
+            finalEnergy > 30 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+            'bg-gradient-to-r from-red-500 to-pink-600'
+        }`;
+    }
+}
+
+function updateEnergyFromFood() {
+    // Simpan status makan ke LocalStorage
+    localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked);
+    localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked);
+    localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked);
+    
+    // Recalculate (Perlu ambil base energy dulu dari durasi tidur yg tersimpan)
+    // Untuk simplifikasi, kita trigger ulang logic UI tidur untuk dapet base energy
+    const sleepStart = localStorage.getItem('steven_sleep_start');
+    const wakeTime = localStorage.getItem('steven_wake_time');
+    if (sleepStart && wakeTime) {
+        const s = new Date(parseInt(sleepStart));
+        const w = new Date(parseInt(wakeTime));
+        updateSleepUI(false, s, w); // Ini akan memanggil calculateTotalEnergy di dalamnya
     }
 }
 
 function checkSleepAlert() {
     const now = new Date();
     const h = now.getHours();
-    
-    // Cek jika jam 22:00 dan belum tidur
-    if (h === 22) {
+    if (h === 22) { // Jam 10 Malam
         const isSleeping = localStorage.getItem('steven_sleep_start') && !localStorage.getItem('steven_wake_time');
         if (!isSleeping) {
-            // Gunakan Notification API jika mau canggih, alert biasa cukup mengganggu :D
-            // alert("Jam 10 Malam! Waktunya tidur untuk kesehatan optimal."); 
-            console.log("Alert Tidur Triggered");
+            console.log("Waktunya tidur!"); 
+            // alert("Jam 22:00! Waktunya istirahat."); // Optional alert
         }
     }
 }
 
 // ==========================================
-// FITUR BARU: DAILY CHECKLIST (ADMIN)
+// 4. CHECKLIST & DATABASE
 // ==========================================
 async function loadDailyChecklist() {
     const container = document.getElementById('daily-checklist-container');
@@ -293,8 +351,6 @@ async function loadDailyChecklist() {
     const now = new Date();
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()];
-    
-    // Format YYYY-MM-DD
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -304,7 +360,6 @@ async function loadDailyChecklist() {
     container.innerHTML = '<p class="text-center text-xs text-gray-400">Loading...</p>';
 
     try {
-        // Fetch semua data
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
             fetch('/api/schedule?category=daily'),
             fetch('/api/schedule?category=uts'),
@@ -317,7 +372,6 @@ async function loadDailyChecklist() {
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Filter Logic (Sama dengan Dashboard)
         const isToday = (item) => {
             if (item.tanggal === tglIni) return true;
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
@@ -341,23 +395,19 @@ async function loadDailyChecklist() {
         container.innerHTML = "";
         
         list.forEach((item, index) => {
-            // Unique ID untuk LocalStorage Checked state
             const checkId = `check_${tglIni}_${item.id || index}`; 
             const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-
-            // Warna Badge
             const badgeColor = {
                 'orange': 'bg-orange-100 text-orange-700',
                 'purple': 'bg-purple-100 text-purple-700',
                 'blue': 'bg-blue-100 text-blue-700',
                 'green': 'bg-green-100 text-green-700'
             }[item.c];
-
             const title = item.matkul || item.nama_kegiatan || "Kegiatan";
 
             container.innerHTML += `
             <div class="flex items-start gap-3 p-3 rounded-xl border border-gray-50 hover:bg-gray-50 transition">
-                <input type="checkbox" class="w-5 h-5 mt-1 accent-blue-600 cursor-pointer check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)">
+                <input type="checkbox" class="w-5 h-5 mt-1 accent-indigo-600 cursor-pointer check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)">
                 <div class="flex-1 transition-all duration-300">
                     <div class="flex justify-between items-start">
                         <span class="text-xs font-bold text-gray-800 line-clamp-1">${title}</span>
@@ -367,6 +417,10 @@ async function loadDailyChecklist() {
                 </div>
             </div>`;
         });
+        
+        // Update Energi setelah render checklist selesai
+        // Kita panggil updateEnergyFromFood karena di dalamnya ada logic recalc
+        updateEnergyFromFood();
 
     } catch (e) {
         console.error(e);
@@ -374,29 +428,21 @@ async function loadDailyChecklist() {
     }
 }
 
-// Simpan status checklist ke LocalStorage
 window.toggleCheck = function(id, el) {
     localStorage.setItem(id, el.checked);
+    // Recalculate Energy saat checklist berubah
+    updateEnergyFromFood(); 
 }
 
-// ==========================================
-// 3. LOGIC LAMA (CRUD & RENDER DATABASE)
-// ==========================================
+// ... (BAGIAN CRUD DATABASE - COPY DARI KODE SEBELUMNYA ATAU BIARKAN JIKA SUDAH ADA) ...
+// ... Pastikan fungsi switchTab, loadAdminData, deleteSchedule, addForm listener ada di sini ...
 
-// ... (Bagian CRUD Add/Delete Database Database Scroll) ...
-// Code CRUD di bawah ini SAMA dengan versi sebelumnya, hanya UI render database diperkecil
-
+// Helper CRUD Functions (Singkat untuk App.js Full)
 window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
-    
-    // Reset style button
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.className = "tab-btn px-2 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded transition";
-    });
-    // Active style
-    btn.className = "tab-btn active px-2 py-1 text-[10px] font-bold bg-blue-100 text-blue-600 rounded transition";
-    
+    document.querySelectorAll('.tab-btn').forEach(b => b.className = "tab-btn px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600 rounded transition");
+    btn.className = "tab-btn active px-2 py-1 text-[10px] font-bold bg-white border border-gray-200 shadow-sm rounded text-indigo-600";
     loadAdminData(targetId.replace('list-', ''));
 }
 
@@ -404,20 +450,12 @@ async function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`);
     if(!container) return;
     container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Loading...</div>';
-
-    if (!adminPassword) return; // Guard
-    
+    if (!adminPassword) return;
     try {
         const res = await fetch(`/api/schedule?category=${category}`);
         const data = await res.json();
         container.innerHTML = ''; 
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>';
-            return;
-        }
-
-        // Render Database Versi Compact (Kecil)
+        if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
         data.forEach(item => {
             const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
             container.innerHTML += `
@@ -426,25 +464,17 @@ async function loadAdminData(category) {
                         <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
                         <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-blue-500">${item.waktu}</span></div>
                     </div>
-                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition">
-                        <i class="fas fa-trash-alt text-[10px]"></i>
-                    </button>
+                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
                 </div>`;
         });
-    } catch(e) {
-        container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Gagal Load</div>';
-    }
+    } catch(e) { container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Error</div>'; }
 }
 
-// ... (Function addForm Submit & deleteSchedule tetap sama, copy dari file lama jika belum ada di bawah ini) ...
-
-// Form Submit Handler
 const addForm = document.getElementById('add-schedule-form');
 if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!adminPassword) { alert("Login dulu!"); return; }
-        
         const rawData = {
             kategori: document.getElementById('kategori').value,
             matkul: document.getElementById('matkul').value,
@@ -458,27 +488,17 @@ if (addForm) {
             tipe: document.getElementById('tipe').value,
             keterangan: document.getElementById('keterangan').value,
         };
-
-        // Bersihkan data berdasarkan hidden fields
         if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = "";
         if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
 
-        // Kirim
         try {
             const res = await fetch('/api/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-                body: JSON.stringify(rawData)
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify(rawData)
             });
             if (res.ok) {
-                alert("Tersimpan!");
-                addForm.reset();
-                if(window.toggleFormFields) window.toggleFormFields(); 
-                loadAdminData(rawData.kategori);
-                loadDailyChecklist(); // Reload checklist
-            } else {
-                alert("Gagal simpan.");
-            }
+                alert("Tersimpan!"); addForm.reset(); if(window.toggleFormFields) window.toggleFormFields(); 
+                loadAdminData(rawData.kategori); loadDailyChecklist();
+            } else { alert("Gagal simpan."); }
         } catch (err) { alert("Error sistem."); }
     });
 }
@@ -486,12 +506,7 @@ if (addForm) {
 window.deleteSchedule = async function(id, category) {
     if(!confirm("Hapus?")) return;
     try {
-        const res = await fetch(`/api/schedule?id=${id}&category=${category}`, {
-            method: 'DELETE', headers: { 'x-admin-password': adminPassword } 
-        });
-        if(res.ok) {
-            loadAdminData(category);
-            loadDailyChecklist(); // Reload checklist
-        }
+        const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } });
+        if(res.ok) { loadAdminData(category); loadDailyChecklist(); }
     } catch(e) { alert("Error koneksi."); }
 }
