@@ -1,51 +1,222 @@
 // File: app.js
 
 // ==========================================
-// 1. INIT & AUTH
+// 1. GLOBAL INIT
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
 let currentCategory = 'daily'; 
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Cek Login
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
     if (savedEmail && savedPass) {
         adminEmail = savedEmail;
         adminPassword = savedPass;
-        const adminPanel = document.getElementById('admin-panel');
-        if (adminPanel) showAdminPanel();
+        if (document.getElementById('admin-panel')) showAdminPanel();
     }
 
-    // Jalankan Jam (Global)
+    // Jam Global
     updateClock();
     setInterval(updateClock, 1000);
 
-    if (document.getElementById('admin-panel')) initAdminFeatures();
-    else if (document.getElementById('main-dashboard')) initDashboardFeatures();
+    // Routing Logic
+    if (document.getElementById('admin-panel')) {
+        initAdminFeatures();
+    } else if (document.getElementById('main-dashboard')) {
+        initDashboardFeatures();
+    }
 });
 
-// Update Jam dengan Detik + Update Jam Admin
 function updateClock() {
     const now = new Date();
+    // Format Jam HH:MM:SS
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false }); 
+    const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
-    const adminClockEl = document.getElementById('admin-realtime-clock');
-    
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    
-    // Index Dashboard Clock
-    if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
-    if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const adminClock = document.getElementById('admin-realtime-clock');
 
-    // Admin Navbar Clock
-    if(adminClockEl) adminClockEl.innerText = `${h}:${m}:${s}`;
+    if(clockEl) clockEl.innerText = timeStr.replace(/:/g, '.'); // Style 08.10.20
+    if(dateEl) dateEl.innerText = dateStr;
+    if(adminClock) adminClock.innerText = timeStr; // Style 08:10:20
 }
 
 // ==========================================
-// 2. LOGIC ADMIN
+// 2. LOGIC DASHBOARD (INDEX.HTML)
+// ==========================================
+function initDashboardFeatures() {
+    loadTodaySchedule();
+    
+    // Auto Sync jika Admin update toggle
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'show_uts' || event.key === 'show_uas') {
+            loadTodaySchedule();
+            if(window.updateDashboardMenu) window.updateDashboardMenu();
+        }
+    });
+}
+
+// --- A. JADWAL HARI INI (TIMELINE) ---
+async function loadTodaySchedule() {
+    const container = document.getElementById('today-schedule-container');
+    if (!container) return;
+
+    // Format Tanggal YYYY-MM-DD
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const tglIni = `${year}-${month}-${day}`;
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const hariIni = days[now.getDay()];
+
+    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Memuat data...</div>`;
+
+    try {
+        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
+            fetch('/api/schedule?category=daily'),
+            fetch('/api/schedule?category=uts'),
+            fetch('/api/schedule?category=uas'),
+            fetch('/api/schedule?category=personal')
+        ]);
+
+        const daily = resDaily.ok ? await resDaily.json() : [];
+        const uts = resUts.ok ? await resUts.json() : [];
+        const uas = resUas.ok ? await resUas.json() : [];
+        const personal = resPersonal.ok ? await resPersonal.json() : [];
+
+        // Logic Filter: Tanggal Spesifik ATAU Hari Rutin
+        const isToday = (item) => {
+            if (item.tanggal && item.tanggal === tglIni) return true;
+            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
+            return false;
+        };
+
+        const showUts = localStorage.getItem('show_uts') === 'true';
+        const showUas = localStorage.getItem('show_uas') === 'true';
+
+        const list = [
+            ...uts.filter(u => u.tanggal === tglIni && showUts).map(i => ({...i, c: 'orange', label:'UTS'})),
+            ...uas.filter(u => u.tanggal === tglIni && showUas).map(i => ({...i, c: 'purple', label:'UAS'})),
+            ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
+            ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
+        ];
+
+        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+        calculateSimpleBusyness(list);
+
+        if (list.length === 0) {
+            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
+            return;
+        }
+
+        // Render menggunakan rowWidget di index.html
+        container.innerHTML = list.map(item => {
+             if(window.rowWidget) return window.rowWidget(item, item.c);
+             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs">${item.matkul}</div>`;
+        }).join('');
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
+    }
+}
+
+// --- B. LIST JADWAL LENGKAP (YANG KEMARIN HILANG) ---
+window.loadScheduleData = async function(category) {
+    const tableBody = document.getElementById('schedule-table-body');
+    const titleBadge = document.getElementById('page-category-badge');
+    
+    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 text-xs">Memuat daftar...</td></tr>';
+    if(titleBadge) titleBadge.innerText = category.toUpperCase();
+
+    try {
+        const res = await fetch(`/api/schedule?category=${category}`);
+        const data = await res.json();
+        
+        if(!tableBody) return;
+        tableBody.innerHTML = '';
+
+        if (data.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-400 text-xs">Data Kosong</td></tr>`;
+            return;
+        }
+
+        // Sorting
+        data.sort((a, b) => {
+            if(category === 'daily') {
+                const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
+                return (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || "");
+            }
+            return new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || "");
+        });
+
+        // Render Table Rows
+        data.forEach(item => {
+            const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
+            const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
+            
+            tableBody.innerHTML += `
+            <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition">
+                <td class="p-4 align-top w-24">
+                    <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
+                    <div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div>
+                </td>
+                <td class="p-4 align-top">
+                    <div class="font-bold text-gray-800 text-sm">${item.matkul || item.nama_kegiatan}</div>
+                    <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div>
+                </td>
+                <td class="p-4 align-top text-right">
+                    <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
+                </td>
+            </tr>`;
+        });
+
+    } catch (error) {
+        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-red-400 text-xs">Gagal koneksi server.</td></tr>';
+    }
+}
+
+// --- C. SIMPLE BUSYNESS (INDEX ONLY) ---
+function calculateSimpleBusyness(items) {
+    let totalMinutes = 0;
+    items.forEach(item => {
+        if(item.waktu.includes('-')) {
+            const [start, end] = item.waktu.split('-');
+            const [sh, sm] = start.split(/[:.]/).map(Number);
+            const [eh, em] = end.split(/[:.]/).map(Number);
+            totalMinutes += ((eh*60+em) - (sh*60+sm));
+        } else { totalMinutes += 60; }
+    });
+
+    const bar = document.getElementById('energy-bar'); 
+    const text = document.getElementById('energy-level');
+    const advice = document.getElementById('busy-advice');
+    
+    if (bar && text && !document.getElementById('admin-panel')) { // Cek agar tidak konflik dgn Admin
+        let percent = Math.round((totalMinutes / 480) * 100); // Base 8 jam
+        if(percent > 100) percent = 100;
+        text.innerText = `${percent}%`;
+        bar.style.width = `${percent}%`;
+        
+        if (percent > 80) {
+            bar.className = "h-full bg-red-500 transition-all duration-1000";
+            if(advice) advice.innerText = "Sangat Sibuk! Istirahatlah.";
+        } else if (percent > 40) {
+            bar.className = "h-full bg-indigo-500 transition-all duration-1000";
+            if(advice) advice.innerText = "Produktif. Tetap fokus!";
+        } else {
+            bar.className = "h-full bg-green-500 transition-all duration-1000";
+            if(advice) advice.innerText = "Hari yang santai.";
+        }
+    }
+}
+
+// ==========================================
+// 3. LOGIC ADMIN
 // ==========================================
 function showAdminPanel() {
     const loginForm = document.getElementById('login-form');
@@ -60,28 +231,17 @@ function initAdminFeatures() {
     initHealthTracker();
     initAdminToggles();
 
-    // REALTIME UPDATE SLEEP TIMER
+    // REALTIME SLEEP TICKER
     setInterval(() => {
         const sleepStart = localStorage.getItem('steven_sleep_start');
         const wakeTime = localStorage.getItem('steven_wake_time');
-        if (sleepStart && !wakeTime) updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+        if (sleepStart && !wakeTime) {
+            updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+        }
     }, 1000);
 }
 
-function initAdminToggles() {
-    const tUts = document.getElementById('toggle-uts');
-    const tUas = document.getElementById('toggle-uas');
-    if (tUts) {
-        tUts.checked = localStorage.getItem('show_uts') === 'true';
-        tUts.addEventListener('change', (e) => localStorage.setItem('show_uts', e.target.checked));
-    }
-    if (tUas) {
-        tUas.checked = localStorage.getItem('show_uas') === 'true';
-        tUas.addEventListener('change', (e) => localStorage.setItem('show_uas', e.target.checked));
-    }
-}
-
-// --- SLEEP & HEALTH TRACKER ---
+// --- SLEEP & ENERGY (ADMIN ONLY) ---
 function initHealthTracker() {
     calculateBMI();
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
@@ -164,9 +324,7 @@ function calculateTotalEnergy(sleepDate, wakeDate) {
 
     const hrs = Math.floor(diffHours);
     const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const textEl = document.getElementById('sleep-duration-text');
-    if(textEl) textEl.innerText = `Total Tidur: ${hrs} Jam ${mins} Menit`;
-
+    document.getElementById('sleep-duration-text').innerText = `Total Tidur: ${hrs} Jam ${mins} Menit`;
     updateEnergyUI(Math.round(energy));
 }
 
@@ -203,6 +361,43 @@ function updateWater(n) {
     if (cur < 0) cur = 0;
     document.getElementById('water-count').innerText = cur;
     localStorage.setItem('steven_water', cur);
+}
+
+// --- ADMIN LISTS & CRUD ---
+window.switchTab = function(targetId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = "tab-btn px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
+    });
+    btn.className = "tab-btn active px-3 py-1.5 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
+    currentCategory = targetId.replace('list-', '');
+    loadAdminData(currentCategory);
+}
+
+async function loadAdminData(category) {
+    const container = document.getElementById(`list-${category}`);
+    if(!container) return;
+    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Loading...</div>';
+    if (!adminPassword) return;
+    try {
+        const res = await fetch(`/api/schedule?category=${category}`);
+        const data = await res.json();
+        container.innerHTML = ''; 
+        if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
+        
+        data.forEach(item => {
+            const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
+            container.innerHTML += `
+                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                    <div class="overflow-hidden w-full pr-2">
+                        <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
+                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
+                    </div>
+                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                </div>`;
+        });
+    } catch(e) { container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Error</div>'; }
 }
 
 async function loadDailyChecklist() {
@@ -279,157 +474,18 @@ async function loadDailyChecklist() {
     }
 }
 
-window.toggleCheck = function(id, el) {
-    localStorage.setItem(id, el.checked);
-    updateEnergyFromFood(); 
-}
-
-// ==========================================
-// 3. LOGIC DASHBOARD USER
-// ==========================================
-function initDashboardFeatures() {
-    loadTodaySchedule();
-    window.addEventListener('storage', (event) => {
-        if (event.key === 'show_uts' || event.key === 'show_uas') {
-            loadTodaySchedule();
-            if(window.updateDashboardMenu) window.updateDashboardMenu(); 
-        }
-    });
-}
-
-async function loadTodaySchedule() {
-    const container = document.getElementById('today-schedule-container');
-    if (!container) return;
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const tglIni = `${year}-${month}-${day}`;
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const hariIni = days[now.getDay()];
-
-    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Memuat data...</div>`;
-
-    try {
-        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
-            fetch('/api/schedule?category=daily'),
-            fetch('/api/schedule?category=uts'),
-            fetch('/api/schedule?category=uas'),
-            fetch('/api/schedule?category=personal')
-        ]);
-
-        const daily = resDaily.ok ? await resDaily.json() : [];
-        const uts = resUts.ok ? await resUts.json() : [];
-        const uas = resUas.ok ? await resUas.json() : [];
-        const personal = resPersonal.ok ? await resPersonal.json() : [];
-
-        const isToday = (item) => {
-            if (item.tanggal && item.tanggal === tglIni) return true;
-            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
-            return false;
-        };
-
-        const showUts = localStorage.getItem('show_uts') === 'true';
-        const showUas = localStorage.getItem('show_uas') === 'true';
-
-        const list = [
-            ...uts.filter(u => u.tanggal === tglIni && showUts).map(i => ({...i, c: 'orange', label:'UTS'})),
-            ...uas.filter(u => u.tanggal === tglIni && showUas).map(i => ({...i, c: 'purple', label:'UAS'})),
-            ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
-            ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
-        ];
-
-        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-        calculateSimpleBusyness(list);
-
-        if (list.length === 0) {
-            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
-            return;
-        }
-
-        container.innerHTML = list.map(item => {
-             if(window.rowWidget) return window.rowWidget(item, item.c);
-             return `<div class="p-3 bg-white mb-2 rounded shadow-sm">${item.matkul}</div>`;
-        }).join('');
-
-    } catch (e) {
-        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
+// 4. FORMS & UTILS
+function initAdminToggles() {
+    const tUts = document.getElementById('toggle-uts');
+    const tUas = document.getElementById('toggle-uas');
+    if (tUts) {
+        tUts.checked = localStorage.getItem('show_uts') === 'true';
+        tUts.addEventListener('change', (e) => localStorage.setItem('show_uts', e.target.checked));
     }
-}
-
-function calculateSimpleBusyness(items) {
-    let totalMinutes = 0;
-    items.forEach(item => {
-        if(item.waktu.includes('-')) {
-            const [start, end] = item.waktu.split('-');
-            const [sh, sm] = start.split(/[:.]/).map(Number);
-            const [eh, em] = end.split(/[:.]/).map(Number);
-            totalMinutes += ((eh*60+em) - (sh*60+sm));
-        } else {
-            totalMinutes += 60; 
-        }
-    });
-
-    const bar = document.getElementById('energy-bar'); 
-    const text = document.getElementById('energy-level');
-    const advice = document.getElementById('busy-advice');
-    
-    if (bar && text) {
-        let percent = Math.round((totalMinutes / 480) * 100);
-        if(percent > 100) percent = 100;
-        
-        text.innerText = `${percent}%`;
-        bar.style.width = `${percent}%`;
-        
-        if (percent > 80) {
-            bar.className = "h-full bg-red-500 transition-all duration-1000";
-            if(advice) advice.innerText = "Sangat Sibuk! Jangan lupa istirahat.";
-        } else if (percent > 40) {
-            bar.className = "h-full bg-indigo-500 transition-all duration-1000";
-            if(advice) advice.innerText = "Produktif. Tetap fokus!";
-        } else {
-            bar.className = "h-full bg-green-500 transition-all duration-1000";
-            if(advice) advice.innerText = "Hari yang santai.";
-        }
+    if (tUas) {
+        tUas.checked = localStorage.getItem('show_uas') === 'true';
+        tUas.addEventListener('change', (e) => localStorage.setItem('show_uas', e.target.checked));
     }
-}
-
-window.switchTab = function(targetId, btn) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.getElementById(targetId).classList.add('active');
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.className = "tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
-    });
-    btn.className = "tab-btn active px-3 py-1 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
-    
-    currentCategory = targetId.replace('list-', '');
-    loadAdminData(currentCategory);
-}
-
-async function loadAdminData(category) {
-    const container = document.getElementById(`list-${category}`);
-    if(!container) return;
-    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Loading...</div>';
-    if (!adminPassword) return;
-    try {
-        const res = await fetch(`/api/schedule?category=${category}`);
-        const data = await res.json();
-        container.innerHTML = ''; 
-        if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
-        
-        data.forEach(item => {
-            const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
-            container.innerHTML += `
-                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
-                    <div class="overflow-hidden w-full pr-2">
-                        <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
-                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
-                    </div>
-                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
-                </div>`;
-        });
-    } catch(e) { container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Error</div>'; }
 }
 
 const addForm = document.getElementById('add-schedule-form');
@@ -450,6 +506,7 @@ if (addForm) {
             tipe: document.getElementById('tipe').value,
             keterangan: document.getElementById('keterangan').value,
         };
+        // Clean Hidden
         if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = "";
         if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
 
