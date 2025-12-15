@@ -412,22 +412,24 @@ function updateClock() {
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// ==========================================
-// MODIFIKASI FUNGSI INI DI app.js
-// ==========================================
-
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
-    // Tampilkan pesan loading di container
     container.innerHTML = `<div class="text-center py-5 text-gray-400 text-sm">Memuat data...</div>`;
 
-    // Ambil Tanggal & Hari Lokal (WIB)
+    // === PERBAIKAN LOGIKA TANGGAL (PENTING) ===
     const now = new Date();
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const hariIni = days[now.getDay()]; 
-    const tglIni = now.toISOString().split('T')[0]; 
+    const hariIni = days[now.getDay()];
+    
+    // Manual format YYYY-MM-DD sesuai waktu lokal komputer/HP user
+    // Agar tidak error saat dibuka jam 00:00 - 07:00 pagi
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const tglIni = `${year}-${month}-${day}`; 
+    // ==========================================
 
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
@@ -442,21 +444,31 @@ async function loadTodaySchedule() {
         const uas = await resUas.json();
         const personal = await resPersonal.json();
 
-        // Filter data yang cocok dengan hari ini
+        // Cek status toggle (Default false jika null)
+        const showUts = localStorage.getItem('show_uts') === 'true';
+        const showUas = localStorage.getItem('show_uas') === 'true';
+
+        // Filter data
         const combinedToday = [
-            ...uts.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uts') === 'true').map(i => ({...i, c: 'orange', label: 'UTS'})),
-            ...uas.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uas') === 'true').map(i => ({...i, c: 'purple', label: 'UAS'})),
-            ...daily.filter(d => d.hari === hariIni).map(i => ({...i, c: 'blue', label: 'KULIAH'})),
-            ...personal.filter(p => p.tanggal === tglIni).map(i => ({...i, c: 'green', label: 'AGENDA'}))
+            // Logika UTS: Tanggal cocok DAN Toggle aktif
+            ...uts.filter(u => u.tanggal === tglIni && showUts)
+                  .map(i => ({...i, c: 'orange', label: 'UTS'})),
+            
+            // Logika UAS: Tanggal cocok DAN Toggle aktif
+            ...uas.filter(u => u.tanggal === tglIni && showUas)
+                  .map(i => ({...i, c: 'purple', label: 'UAS'})),
+            
+            // Kuliah Rutin
+            ...daily.filter(d => d.hari === hariIni)
+                    .map(i => ({...i, c: 'blue', label: 'KULIAH'})),
+            
+            // Agenda Pribadi
+            ...personal.filter(p => p.tanggal === tglIni)
+                       .map(i => ({...i, c: 'green', label: 'AGENDA'}))
         ];
 
-        // === TAMBAHAN LOGIKA SORTING (Supaya urut jam pagi ke malam) ===
-        combinedToday.sort((a, b) => {
-            // Menggunakan localeCompare untuk membandingkan string waktu (misal: "07:30" vs "09:00")
-            // Ini akan mengurutkan dari waktu terkecil ke terbesar secara otomatis
-            return a.waktu.localeCompare(b.waktu);
-        });
-        // ================================================================
+        // Sorting dari pagi ke malam
+        combinedToday.sort((a, b) => a.waktu.localeCompare(b.waktu));
 
         if (combinedToday.length === 0) {
             container.innerHTML = `
@@ -467,10 +479,10 @@ async function loadTodaySchedule() {
             return;
         }
 
-        // Render Widget Besar
         container.innerHTML = combinedToday.map(item => rowWidget(item)).join('');
 
     } catch (e) {
+        console.error(e);
         container.innerHTML = '<p class="text-red-500 text-center py-5">Gagal memuat data jadwal.</p>';
     }
 }
@@ -520,4 +532,5 @@ function checkToggles() {
         });
     }
 }
+
 
