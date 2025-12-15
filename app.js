@@ -215,19 +215,70 @@ if (addForm) {
 }
 window.deleteSchedule = async function(id, category) { if(!confirm("Hapus?")) return; try { const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } }); if(res.ok) { loadAdminData(category); loadDailyChecklist(); } } catch(e) { alert("Error koneksi."); } }
 
-// HEALTH (SAMA)
-function initHealthTracker() { calculateBMI(); document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1')==='true'; document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2')==='true'; document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3')==='true'; const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); if (s && !w) updateSleepUI(true, new Date(parseInt(s))); else if (s && w) updateSleepUI(false, new Date(parseInt(s)), new Date(parseInt(w))); else updateEnergyUI(50); document.getElementById('water-count').innerText = localStorage.getItem('steven_water')||0; }
-function toggleSleep(isS) { const now = new Date(); if (isS) { localStorage.setItem('steven_sleep_start', now.getTime()); localStorage.removeItem('steven_wake_time'); updateSleepUI(true, now); } else { const s = localStorage.getItem('steven_sleep_start'); if (!s) return alert("Belum tidur!"); localStorage.setItem('steven_wake_time', now.getTime()); updateSleepUI(false, new Date(parseInt(s)), now); } }
-function updateSleepUI(isS, sDate, wDate=null) { const bS = document.getElementById('btn-sleep'); const bW = document.getElementById('btn-wake'); const st = document.getElementById('sleep-status-text'); const dS = document.getElementById('sleep-time-display'); const dW = document.getElementById('wake-time-display'); const fmt = d => `${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}`; if (isS) { bS.classList.add('opacity-50','cursor-not-allowed'); bS.onclick=null; bW.classList.remove('opacity-50','cursor-not-allowed'); bW.onclick=()=>toggleSleep(false); dS.innerText=fmt(sDate); dW.innerText="--.--"; st.innerText="Zzz..."; updateEnergyUI(0); } else { bS.classList.remove('opacity-50','cursor-not-allowed'); bS.onclick=()=>toggleSleep(true); bW.classList.add('opacity-50','cursor-not-allowed'); bW.onclick=null; dS.innerText=fmt(sDate); if(wDate) dW.innerText=fmt(wDate); st.innerText="Siap!"; if(wDate) calculateTotalEnergy(sDate, wDate); } }
-function updateSleepDurationRealtime(sDate) { const now = new Date(); const diff = now - sDate; const h = Math.floor(diff/3600000); const m = Math.floor((diff%3600000)/60000); const s = Math.floor((diff%60000)/1000); document.getElementById('sleep-duration-text').innerText=`Tidur: ${h}j ${m}m ${s}d`; }
-function calculateTotalEnergy(sDate, wDate) { const diff = wDate - sDate; let e = (diff/3600000/8)*100; if(document.getElementById('eat-1').checked) e+=15; if(document.getElementById('eat-2').checked) e+=15; if(document.getElementById('eat-3').checked) e+=15; const tasks = document.querySelectorAll('.check-anim:checked').length; e-=(tasks*5); if(e>100)e=100; if(e<0)e=0; const h = Math.floor(diff/3600000); const m = Math.floor((diff%3600000)/60000); document.getElementById('sleep-duration-text').innerText=`Total: ${h}j ${m}m`; updateEnergyUI(Math.round(e)); }
-function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); const txt = document.getElementById('energy-level'); if (bar && txt) { bar.style.width=`${v}%`; txt.innerText=`${v}%`; bar.className=`h-full transition-all duration-500 ${v>50?'bg-green-500':'bg-red-500'}`; } }
-function updateEnergyFromFood() { localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked); localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked); localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked); const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); if(s && w) calculateTotalEnergy(new Date(parseInt(s)), new Date(parseInt(w))); }
-function calculateBMI() { const w = parseFloat(document.getElementById('input-bb').value)||50; const h=1.8; const bmi=(w/(h*h)).toFixed(1); document.getElementById('bmi-result').innerText=`BMI: ${bmi}`; }
-function updateWater(n) { let c = parseInt(document.getElementById('water-count').innerText)+n; if(c<0)c=0; document.getElementById('water-count').innerText=c; localStorage.setItem('steven_water',c); }
-async function loadDailyChecklist() { const c = document.getElementById('daily-checklist-container'); if(!c) return; const now = new Date(); const tglIni = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; c.innerHTML='Loading...'; try { const [d, uts, uas, p] = await Promise.all([fetch('/api/schedule?category=daily').then(r=>r.json()), fetch('/api/schedule?category=uts').then(r=>r.json()), fetch('/api/schedule?category=uas').then(r=>r.json()), fetch('/api/schedule?category=personal').then(r=>r.json())]); const list = [...d,...uts,...uas,...p].filter(i => (i.tanggal && i.tanggal===tglIni) || (!i.tanggal && (i.hari||"").toLowerCase()===['minggu','senin','selasa','rabu','kamis','jumat','sabtu'][now.getDay()])); list.sort((a,b)=>(a.waktu||"").localeCompare(b.waktu||"")); c.innerHTML=''; list.forEach((i,idx)=>{ const cid=`check_${tglIni}_${i.id||idx}`; c.innerHTML+=`<div class="flex gap-2"><input type="checkbox" class="check-anim" ${localStorage.getItem(cid)==='true'?'checked':''} onchange="toggleCheck('${cid}',this)"><span>${i.matkul||i.nama_kegiatan}</span></div>`; }); updateEnergyFromFood(); } catch(e){} }
-window.toggleCheck = function(id, el) { localStorage.setItem(id, el.checked); updateEnergyFromFood(); }
+function calculateBMI() {
+    // Ambil nilai dari input
+    const w = parseFloat(document.getElementById('input-bb').value) || 0;
+    const h_cm = parseFloat(document.getElementById('input-tb').value) || 0;
+
+    // Simpan ke localStorage biar tidak hilang saat refresh
+    localStorage.setItem('steven_berat', w);
+    localStorage.setItem('steven_tinggi', h_cm);
+
+    if (h_cm > 0) {
+        // Rumus: Berat / (TinggiMeter * TinggiMeter)
+        const h_m = h_cm / 100;
+        const bmi = (w / (h_m * h_m)).toFixed(1);
+        
+        // Tampilkan Angka BMI
+        document.getElementById('bmi-result').innerText = `BMI: ${bmi}`;
+
+        // Tentukan Status & Warna
+        let statusText = "";
+        let statusColor = "";
+
+        if (bmi < 18.5) {
+            statusText = "Kurus (Underweight)";
+            statusColor = "text-yellow-500";
+        } else if (bmi >= 18.5 && bmi <= 24.9) {
+            statusText = "Ideal (Normal)";
+            statusColor = "text-green-500";
+        } else if (bmi >= 25 && bmi <= 29.9) {
+            statusText = "Berisi (Overweight)";
+            statusColor = "text-orange-500";
+        } else {
+            statusText = "Obesitas";
+            statusColor = "text-red-500";
+        }
+
+        // Update UI Status
+        const statusEl = document.getElementById('bmi-status');
+        statusEl.innerText = statusText;
+        statusEl.className = `text-[10px] font-bold mt-1 ${statusColor}`;
+    }
+}
+
+// UPDATE JUGA: initHealthTracker (supaya saat dibuka webnya, angka tinggi badan muncul)
+function initHealthTracker() {
+    // Load Berat & Tinggi dari LocalStorage (atau default)
+    document.getElementById('input-bb').value = localStorage.getItem('steven_berat') || 50;
+    document.getElementById('input-tb').value = localStorage.getItem('steven_tinggi') || 180;
+    
+    // Hitung BMI awal
+    calculateBMI();
+
+    // ... (kode sisa fungsi ini biarkan saja seperti makan, tidur, dll) ...
+    document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1')==='true';
+    document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2')==='true';
+    document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3')==='true';
+    const s = localStorage.getItem('steven_sleep_start');
+    const w = localStorage.getItem('steven_wake_time');
+    if (s && !w) updateSleepUI(true, new Date(parseInt(s)));
+    else if (s && w) updateSleepUI(false, new Date(parseInt(s)), new Date(parseInt(w)));
+    else updateEnergyUI(50);
+    document.getElementById('water-count').innerText = localStorage.getItem('steven_water')||0;
+}
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email, password: pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else alert("Salah"); } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
