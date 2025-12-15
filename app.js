@@ -14,14 +14,13 @@ function showAdminPanel() {
     if(loginForm) loginForm.style.display = 'none';
     if(adminPanel) {
         adminPanel.style.display = 'block';
-        // Auto-load jadwal harian saat panel muncul
         loadAdminData('daily'); 
     }
 }
 
 // Pemicu Utama Saat Halaman Dimuat
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Cek Sesi Login yang tersimpan di LocalStorage
+    // 1. Cek Sesi Login
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
 
@@ -40,14 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadTodaySchedule();
     }
     
-    // 4. Cek Toggle Fitur (UTS/UAS)
+    // 4. Cek Toggle Fitur
     checkToggles();
 
-    // === FITUR BARU: AUTO SYNC ANTAR TAB ===
-    // Ini bikin dashboard otomatis update kalau admin panel ganti toggle
+    // 5. Auto Sync
     window.addEventListener('storage', (event) => {
         if (event.key === 'show_uts' || event.key === 'show_uas') {
-            console.log("Setting berubah, memuat ulang jadwal...");
             loadTodaySchedule();
         }
     });
@@ -56,16 +53,13 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 // 1. LOGIC LOGIN ADMIN
 // ==========================================
-
 const loginBtn = document.getElementById('btn-login');
 if (loginBtn) {
     loginBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-
         const email = document.getElementById('email').value;
         const pass = document.getElementById('password').value;
         const errorMsg = document.getElementById('login-error');
-        
         errorMsg.style.display = 'none';
 
         if(!email || !pass) {
@@ -92,10 +86,9 @@ if (loginBtn) {
                 showAdminPanel();
             } else {
                 const errorData = await res.json();
-                throw new Error(errorData.message || "Akses Ditolak: Kredensial Salah."); 
+                throw new Error(errorData.message || "Akses Ditolak."); 
             }
         } catch (err) {
-            console.error("Login Gagal:", err.message);
             errorMsg.innerText = err.message;
             errorMsg.style.display = 'block';
         } finally {
@@ -105,8 +98,6 @@ if (loginBtn) {
     });
 }
 
-
-// Logout
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
@@ -123,20 +114,16 @@ if (btnLogout) {
 // ==========================================
 // 2. HELPER FUNCTIONS
 // ==========================================
-
 function getSafeTitle(item) {
     return item.matkul || item.nama_kegiatan || item.nama || item.keterangan || "Kegiatan";
 }
 
-// === FUNGSI CEK BENTROK WAKTU ===
 function isTimeConflict(existingWaktu, newWaktu) {
     const timeToMinutes = (time) => {
         try {
-            const [h, m] = time.split(/[:.]/).map(Number); // Support format 08:00 dan 08.00
+            const [h, m] = time.split(/[:.]/).map(Number);
             return h * 60 + m;
-        } catch (error) {
-            return 0; 
-        }
+        } catch (error) { return 0; }
     };
 
     try {
@@ -149,56 +136,41 @@ function isTimeConflict(existingWaktu, newWaktu) {
         const newEnd = timeToMinutes(newEndStr.trim());
 
         return newStart < existingEnd && newEnd > existingStart;
-    } catch (error) {
-        return false;
-    }
+    } catch (error) { return false; }
 }
 
 // ==========================================
-// FITUR BARU: INDIKATOR KESIBUKAN (STEVEN'S RULE)
+// FITUR: INDIKATOR KESIBUKAN (STEVEN'S RULE)
 // ==========================================
-
 function calculateBusyness(schedules) {
     let totalMinutes = 0;
-    let maxEndTime = 0; // Untuk melacak jam berapa kegiatan terakhir selesai
+    let maxEndTime = 0; 
 
     schedules.forEach(item => {
-        // Logika Parse Waktu (08:00-10:00)
         let startMin = 0;
         let endMin = 0;
-
         try {
             if (item.waktu.includes('-')) {
                 const parts = item.waktu.split('-');
                 const s = parts[0].trim().split(/[:.]/).map(Number);
                 const e = parts[1].trim().split(/[:.]/).map(Number);
-                
                 startMin = (s[0] * 60) + s[1];
                 endMin = (e[0] * 60) + e[1];
-                
                 if (endMin > startMin) totalMinutes += (endMin - startMin);
             } else {
-                // Jika format single (08:00), asumsi durasi 60 menit
                 const s = item.waktu.trim().split(/[:.]/).map(Number);
                 startMin = (s[0] * 60) + s[1];
                 endMin = startMin + 60; 
                 totalMinutes += 60;
             }
-
-            // Cek jam selesai paling malam
-            if (endMin > maxEndTime) {
-                maxEndTime = endMin;
-            }
-
-        } catch (err) { console.error("Skip error time", err); }
+            if (endMin > maxEndTime) maxEndTime = endMin;
+        } catch (err) {}
     });
-
     updateBusynessUI(totalMinutes, maxEndTime);
 }
 
 function updateBusynessUI(totalMinutes, maxEndTime) {
     const totalHours = (totalMinutes / 60).toFixed(1);
-    
     const statusText = document.getElementById('busy-status-text');
     const hoursText = document.getElementById('total-hours-text');
     const bar = document.getElementById('busy-progress-bar');
@@ -206,53 +178,19 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
 
     if (!statusText) return;
 
-    // --- LOGIKA UTAMA (RULE JAM 18:00) ---
-    // 18:00 = 18 * 60 = 1080 menit dari jam 00:00
     const limitSore = 18 * 60; 
     let level = {};
 
-    // Skenario 1: Ada kegiatan LEWAT jam 18:00 (Malam) -> LEMBUR
     if (maxEndTime > limitSore) {
-        level = {
-            status: "LEMBUR / EXTRA 🔥",
-            color: "bg-purple-600",
-            textCol: "text-purple-600",
-            percent: 100,
-            msg: "Ada agenda malam ini. Jaga kesehatan, jangan lupa makan malam!"
-        };
-    } 
-    // Skenario 2: Total jam kerja > 8 jam -> SANGAT SIBUK
-    else if (totalHours > 8) {
-        level = {
-            status: "SANGAT SIBUK 💀",
-            color: "bg-red-500",
-            textCol: "text-red-500",
-            percent: 90,
-            msg: "Hari yang panjang. Segera istirahat jam 6 sore nanti!"
-        };
-    }
-    // Skenario 3: Produktif (4 - 8 Jam) -> PRODUKTIF
-    else if (totalHours >= 4) {
-        level = {
-            status: "PRODUKTIF ✅",
-            color: "bg-green-500",
-            textCol: "text-green-600",
-            percent: 60,
-            msg: "Performa optimal. Selesaikan sebelum jam 6 sore."
-        };
-    }
-    // Skenario 4: Santai (< 4 Jam) -> SANTAI
-    else {
-        level = {
-            status: "SANTAI / LIGHT ☕",
-            color: "bg-blue-400",
-            textCol: "text-blue-500",
-            percent: 30,
-            msg: "Jadwal longgar. Waktunya 'Me Time' atau hobi."
-        };
+        level = { status: "LEMBUR / EXTRA 🔥", color: "bg-purple-600", textCol: "text-purple-600", percent: 100, msg: "Ada agenda malam. Semangat!" };
+    } else if (totalHours > 8) {
+        level = { status: "SANGAT SIBUK 💀", color: "bg-red-500", textCol: "text-red-500", percent: 90, msg: "Hari yang panjang. Istirahat cukup nanti." };
+    } else if (totalHours >= 4) {
+        level = { status: "PRODUKTIF ✅", color: "bg-green-500", textCol: "text-green-600", percent: 60, msg: "Performa optimal. Selesaikan sebelum petang." };
+    } else {
+        level = { status: "SANTAI / LIGHT ☕", color: "bg-blue-400", textCol: "text-blue-500", percent: 30, msg: "Jadwal longgar. Waktunya hobi." };
     }
 
-    // Update UI
     hoursText.innerText = totalHours;
     statusText.innerText = level.status;
     statusText.className = `text-xl font-bold ${level.textCol}`;
@@ -261,11 +199,9 @@ function updateBusynessUI(totalMinutes, maxEndTime) {
     advice.innerText = `"${level.msg}"`;
 }
 
-
 // ==========================================
 // 3. LOGIC UTAMA (PUBLIC VIEW - TABEL)
 // ==========================================
-
 window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
     const titleElement = document.getElementById('page-category-badge');
@@ -292,10 +228,15 @@ function renderTable(data, category) {
         return;
     }
 
-    // Sorting Logika
+    // Hybrid Sorting (Bisa Hari atau Tanggal)
     if (category === 'daily') {
         const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
-        data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
+        data.sort((a, b) => {
+            // Prioritas sorting: Tanggal dulu (kalo ada), baru Hari
+            if (a.tanggal && b.tanggal) return new Date(a.tanggal) - new Date(b.tanggal);
+            if (a.hari && b.hari) return (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99);
+            return (a.waktu || "").localeCompare(b.waktu || "");
+        });
     } else {
         data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
     }
@@ -303,10 +244,9 @@ function renderTable(data, category) {
     data.forEach(item => {
         const badgeColor = (item.tipe === 'Praktek') ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
         const detailText = (category === 'personal') ? (item.keterangan || '-') : (item.dosen || '-');
-        const rowClass = "hover:bg-gray-50"; 
         
         tableBody.innerHTML += `
-            <tr class="${rowClass} border-b last:border-0 transition text-sm">
+            <tr class="hover:bg-gray-50 border-b last:border-0 transition text-sm">
                 <td class="p-5 align-middle">
                     <div class="font-bold text-gray-800">${item.hari || item.tanggal}</div>
                     <div class="text-xs text-blue-500 font-bold mt-1 px-2 py-1 bg-blue-50 rounded w-fit">${item.waktu}</div>
@@ -325,7 +265,6 @@ function renderTable(data, category) {
 // ==========================================
 // 4. BAGIAN ADMIN (CRUD)
 // ==========================================
-
 window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
@@ -333,13 +272,9 @@ window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.className = "tab-btn px-5 py-3 text-sm font-bold text-gray-500 hover:text-blue-600 border-b-2 border-transparent transition whitespace-nowrap";
     });
-    
     btn.className = "tab-btn active px-5 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition whitespace-nowrap";
-    
-    // Ambil kategori dari ID (contoh: list-daily -> daily)
     loadAdminData(targetId.replace('list-', ''));
 }
-
 
 async function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`);
@@ -362,10 +297,8 @@ async function loadAdminData(category) {
         }
 
         data.forEach(item => {
-            const cardClass = 'bg-gray-50'; 
-            
             container.innerHTML += `
-                <div class="${cardClass} p-3 rounded-xl border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
                     <div class="overflow-hidden">
                         <div class="font-bold text-sm text-gray-800 truncate">${getSafeTitle(item)}</div>
                         <div class="text-xs text-gray-500 mt-0.5">${item.hari || item.tanggal} • <span class="text-blue-500 font-medium">${item.waktu}</span></div>
@@ -391,36 +324,42 @@ if (addForm) {
             return;
         }
         
+        // Ambil data dengan aman (kosongkan jika tidak relevan)
         const rawData = {
             kategori: document.getElementById('kategori').value,
             matkul: document.getElementById('matkul').value,
-            hari: document.getElementById('hari').value,
+            // Jika form hari hidden, kirim string kosong
+            hari: document.getElementById('field-hari').classList.contains('hidden') ? "" : document.getElementById('hari').value,
+            // Jika form tanggal hidden, kirim string kosong
+            tanggal: document.getElementById('field-tanggal').classList.contains('hidden') ? "" : document.getElementById('tanggal').value,
             waktu: document.getElementById('waktu').value,
             ruangan: document.getElementById('ruangan').value,
             kode: document.getElementById('kode').value,
             dosen: document.getElementById('dosen').value,
             kelas: document.getElementById('kelas').value,
             tipe: document.getElementById('tipe').value,
-            tanggal: document.getElementById('tanggal').value,
             keterangan: document.getElementById('keterangan').value,
         };
 
-        // CEK BENTROK
+        // CEK BENTROK (LOGIKA BARU: HYBRID)
         try {
             const checkRes = await fetch(`/api/schedule?category=${rawData.kategori}`);
-            if (!checkRes.ok) throw new Error("Gagal mengambil data untuk cek bentrok.");
-            
+            if (!checkRes.ok) throw new Error("Gagal cek data.");
             const existingSchedules = await checkRes.json();
+            
             let isConflict = false;
             let conflictDetails = null;
 
             for (const existing of existingSchedules) {
                 let keyMatch = false;
-                if (rawData.kategori === 'daily') {
-                    // Case insensitive check untuk hari
-                    keyMatch = (existing.hari.toLowerCase() === rawData.hari.toLowerCase());
-                } else {
+
+                // 1. Cek Bentrok TANGGAL (Jika input pakai tanggal)
+                if (rawData.tanggal && existing.tanggal) {
                     keyMatch = (existing.tanggal === rawData.tanggal);
+                } 
+                // 2. Cek Bentrok HARI (Jika input pakai hari)
+                else if (rawData.hari && existing.hari) {
+                    keyMatch = (existing.hari.toLowerCase() === rawData.hari.toLowerCase());
                 }
 
                 if (keyMatch && isTimeConflict(existing.waktu, rawData.waktu)) {
@@ -431,67 +370,52 @@ if (addForm) {
             }
             
             if (isConflict) {
-                alert(`Gagal! Jadwal bentrok dengan: ${getSafeTitle(conflictDetails)} pada ${conflictDetails.hari || conflictDetails.tanggal} pukul ${conflictDetails.waktu}.`);
+                alert(`Gagal! Bentrok dengan: ${getSafeTitle(conflictDetails)} pada ${conflictDetails.hari || conflictDetails.tanggal} (${conflictDetails.waktu}).`);
                 return; 
             }
 
+            // Simpan
             const res = await fetch('/api/schedule', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'x-admin-password': adminPassword 
-                },
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
                 body: JSON.stringify(rawData)
             });
 
             if (res.ok) {
-                alert("Data berhasil disimpan!");
+                alert("Data tersimpan!");
                 addForm.reset();
+                // Kembalikan form ke kondisi default
+                if(window.toggleFormFields) window.toggleFormFields(); 
                 loadAdminData(rawData.kategori);
             } else {
-                alert("Gagal menyimpan. Pastikan kredensial admin valid.");
+                alert("Gagal simpan.");
             }
-        } catch (err) {
-            console.error(err);
-            alert("Terjadi kesalahan sistem.");
-        }
+        } catch (err) { alert("Error sistem."); console.error(err); }
     });
 }
 
 window.deleteSchedule = async function(id, category) {
     if(!confirm("Hapus jadwal ini?")) return;
-
-    if (!adminPassword) {
-        alert("Sesi habis, silakan login ulang.");
-        location.reload();
-        return;
-    }
+    if (!adminPassword) return alert("Login dulu.");
     
     try {
         const res = await fetch(`/api/schedule?id=${id}&category=${category}`, {
             method: 'DELETE', 
             headers: { 'x-admin-password': adminPassword } 
         });
-        
-        if(res.ok) {
-            loadAdminData(category);
-        } else {
-            alert("Gagal menghapus data.");
-        }
-    } catch(e) { 
-        alert("Gagal koneksi."); 
-    }
+        if(res.ok) loadAdminData(category);
+        else alert("Gagal hapus.");
+    } catch(e) { alert("Error koneksi."); }
 }
 
 // ==========================================
 // 5. WIDGET BERANDA & TOGGLE
 // ==========================================
-
 function updateClock() {
     const now = new Date();
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
-    if(clockEl) clockEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false }).replace(/:/g, '.'); // Sesuai style 08.10.20
+    if(clockEl) clockEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false }).replace(/:/g, '.');
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
@@ -505,7 +429,7 @@ async function loadTodaySchedule() {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()]; 
     
-    // Perbaikan Tanggal (Format YYYY-MM-DD Lokal)
+    // Format YYYY-MM-DD Local
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -519,27 +443,34 @@ async function loadTodaySchedule() {
             fetch('/api/schedule?category=personal')
         ]);
         
-        // Cek jika API error, kembalikan array kosong agar tidak crash
         const daily = resDaily.ok ? await resDaily.json() : [];
         const uts = resUts.ok ? await resUts.json() : [];
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Filter Data (Dengan Case Insensitive untuk Hari)
-        // Gunakan (a.waktu || "") saat sort agar tidak crash jika waktu kosong
+        // === LOGIKA FILTER HYBRID (HARI ATAU TANGGAL) ===
+        // Fungsi helper: Apakah item cocok untuk hari ini?
+        const isToday = (item) => {
+            // 1. Cek Tanggal Spesifik (Prioritas Tinggi)
+            if (item.tanggal === tglIni) return true;
+            // 2. Cek Hari Rutin (Hanya jika TIDAK ada tanggal spesifik di item tsb)
+            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
+            return false;
+        };
+
         const combinedToday = [
             ...uts.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uts') === 'true').map(i => ({...i, c: 'orange', label: 'UTS'})),
             ...uas.filter(u => u.tanggal === tglIni && localStorage.getItem('show_uas') === 'true').map(i => ({...i, c: 'purple', label: 'UAS'})),
-            ...daily.filter(d => (d.hari || "").toLowerCase() === hariIni.toLowerCase()).map(i => ({...i, c: 'blue', label: 'KULIAH'})),
-            ...personal.filter(p => p.tanggal === tglIni).map(i => ({...i, c: 'green', label: 'AGENDA'}))
+            // Daily & Personal sekarang pakai fungsi isToday()
+            ...daily.filter(isToday).map(i => ({...i, c: 'blue', label: 'KULIAH'})),
+            ...personal.filter(isToday).map(i => ({...i, c: 'green', label: 'AGENDA'}))
         ];
 
-        // LOGIKA SORTING (URUT JAM) - Diperkuat agar tidak error null
+        // Sorting
         combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
 
-        // === PANGGIL FUNGSI KESIBUKAN DI SINI ===
+        // Hitung Kesibukan
         calculateBusyness(combinedToday); 
-        // ========================================
 
         if (combinedToday.length === 0) {
             container.innerHTML = `
@@ -584,7 +515,6 @@ function rowWidget(i) {
 function checkToggles() {
     const tUts = document.getElementById('toggle-uts');
     const tUas = document.getElementById('toggle-uas');
-    
     if(tUts) {
         tUts.checked = localStorage.getItem('show_uts') === 'true';
         tUts.addEventListener('change', e => {
