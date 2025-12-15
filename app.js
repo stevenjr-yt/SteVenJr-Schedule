@@ -6,7 +6,8 @@
 let adminPassword = null; 
 let adminEmail = null;
 let currentCategory = 'daily'; 
-let globalSettings = { show_uts: false, show_uas: false }; // Default
+// Variable Global untuk menyimpan status dari Server
+let globalSettings = { show_uts: false, show_uas: false }; 
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Cek Login (Khusus Admin)
@@ -22,11 +23,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateClock();
     setInterval(updateClock, 1000);
 
-    // 3. FETCH SETTINGS DARI SERVER (WAJIB DULUAN)
-    // Kita paksa tunggu fetch selesai baru init fitur lain
+    // 3. LOAD SETTINGS DARI SERVER (WAJIB DULUAN)
+    // Kita tunggu data dari api/settings.js selesai di-download
     await fetchSettings();
 
-    // 4. Init Fitur Sesuai Halaman
+    // 4. Init Fitur Sesuai Halaman (Setelah settings siap)
     if (document.getElementById('admin-panel')) {
         initAdminFeatures();
     } else if (document.getElementById('main-dashboard')) {
@@ -34,31 +35,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- API SINKRONISASI ---
+// --- FUNGSI KOMUNIKASI KE API SETTINGS ---
 async function fetchSettings() {
     try {
         const res = await fetch('/api/settings');
         if (res.ok) {
             globalSettings = await res.json();
-            console.log("Settings Loaded from Firebase:", globalSettings);
+            console.log("Settings Loaded:", globalSettings);
         }
     } catch (e) {
         console.error("Gagal load settings:", e);
     }
 }
 
-async function saveSettings(newSettings) {
+async function saveSettings(newStatus) {
     try {
         // Update variable lokal
-        globalSettings = { ...globalSettings, ...newSettings };
-        // Kirim ke server
+        globalSettings = { ...globalSettings, ...newStatus };
+        
+        // Kirim ke Server
         await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(globalSettings)
         });
         console.log("Settings Saved to Firebase");
-    } catch (e) { console.error("Save failed:", e); }
+    } catch (e) { 
+        console.error("Gagal save settings:", e);
+    }
 }
 
 function updateClock() {
@@ -77,18 +81,18 @@ function updateClock() {
 }
 
 // ==========================================
-// 2. DASHBOARD USER (INDEX.HTML)
+// 2. LOGIC DASHBOARD (INDEX.HTML)
 // ==========================================
 function initDashboardFeatures() {
-    updateDashboardMenu(); // Update tombol berdasarkan data server
+    updateDashboardMenu(); 
     loadTodaySchedule();
     
-    // Auto Refresh Settings tiap 10 detik (Biar HP Ortu update sendiri)
+    // Auto Refresh Settings tiap 5 detik
     setInterval(async () => {
         await fetchSettings();
         updateDashboardMenu();
         loadTodaySchedule();
-    }, 10000);
+    }, 5000); 
 }
 
 function updateDashboardMenu() {
@@ -96,19 +100,20 @@ function updateDashboardMenu() {
     const uasBtn = document.getElementById('btn-menu-uas');
     const container = document.getElementById('exam-buttons-container');
 
-    // Reset Class
-    if (utsBtn) utsBtn.classList.add('hidden');
-    if (uasBtn) uasBtn.classList.add('hidden');
-    if (container) container.classList.add('hidden');
+    if(!container) return;
 
-    // Cek Global Settings dari Server
+    // Reset Hidden
+    utsBtn.classList.add('hidden');
+    uasBtn.classList.add('hidden');
+    container.classList.add('hidden');
+
+    // Cek Global Settings
     if (globalSettings.show_uts || globalSettings.show_uas) {
-        if(container) {
-            container.classList.remove('hidden');
-            container.classList.add('flex');
-        }
-        if (globalSettings.show_uts && utsBtn) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
-        if (globalSettings.show_uas && uasBtn) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
+        container.classList.remove('hidden');
+        container.classList.add('flex');
+        
+        if (globalSettings.show_uts) { utsBtn.classList.remove('hidden'); utsBtn.classList.add('flex'); }
+        if (globalSettings.show_uas) { uasBtn.classList.remove('hidden'); uasBtn.classList.add('flex'); }
     }
 }
 
@@ -123,7 +128,8 @@ async function loadTodaySchedule() {
     const tglIni = `${year}-${month}-${day}`;
     const hariIni = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][now.getDay()];
 
-    container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
+    // Loading State (Hanya text kecil biar ga kedip parah)
+    // container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
 
     try {
         const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
@@ -144,7 +150,7 @@ async function loadTodaySchedule() {
             return false;
         };
 
-        // Filter List berdasarkan Settings Server
+        // FILTER UTAMA: Gunakan globalSettings dari Server
         const list = [
             ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
             ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
@@ -166,7 +172,7 @@ async function loadTodaySchedule() {
         }).join('');
 
     } catch (e) {
-        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
+        console.error("Load Error:", e);
     }
 }
 
@@ -175,9 +181,11 @@ function calculateSimpleBusyness(items) {
     items.forEach(item => {
         if(item.waktu.includes('-')) {
             const [start, end] = item.waktu.split('-');
-            const [sh, sm] = start.split(/[:.]/).map(Number);
-            const [eh, em] = end.split(/[:.]/).map(Number);
-            totalMinutes += ((eh*60+em) - (sh*60+sm));
+            try {
+                const [sh, sm] = start.split(/[:.]/).map(Number);
+                const [eh, em] = end.split(/[:.]/).map(Number);
+                totalMinutes += ((eh*60+em) - (sh*60+sm));
+            } catch(e) { totalMinutes += 60; }
         } else { totalMinutes += 60; }
     });
 
@@ -188,12 +196,20 @@ function calculateSimpleBusyness(items) {
     if (bar && text && !document.getElementById('admin-panel')) {
         let percent = Math.round((totalMinutes / 480) * 100);
         if(percent > 100) percent = 100;
+        
         text.innerText = `${percent}%`;
         bar.style.width = `${percent}%`;
         
-        if (percent > 80) { bar.className = "h-full bg-red-500 transition-all duration-1000"; if(advice) advice.innerText = "Sangat Sibuk!"; } 
-        else if (percent > 40) { bar.className = "h-full bg-indigo-500 transition-all duration-1000"; if(advice) advice.innerText = "Produktif."; } 
-        else { bar.className = "h-full bg-green-500 transition-all duration-1000"; if(advice) advice.innerText = "Santai."; }
+        if (percent > 80) {
+            bar.className = "h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.5)]";
+            if(advice) advice.innerText = "Sangat Sibuk! Istirahatlah.";
+        } else if (percent > 40) {
+            bar.className = "h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
+            if(advice) advice.innerText = "Produktif. Tetap fokus!";
+        } else {
+            bar.className = "h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]";
+            if(advice) advice.innerText = "Hari yang santai.";
+        }
     }
 }
 
@@ -213,26 +229,23 @@ function initAdminFeatures() {
     initHealthTracker();
     initAdminToggles(); // Init Tombol dengan data Server
 
-    // Realtime Sleep
     setInterval(() => {
         const sleepStart = localStorage.getItem('steven_sleep_start');
         const wakeTime = localStorage.getItem('steven_wake_time');
-        if (sleepStart && !wakeTime) {
-            updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
-        }
+        if (sleepStart && !wakeTime) updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
     }, 1000);
 }
 
-// --- INIT TOGGLES (DATA SERVER) ---
+// --- INIT TOGGLES (SETTING KE SERVER) ---
 function initAdminToggles() {
     const tUts = document.getElementById('toggle-uts');
     const tUas = document.getElementById('toggle-uas');
 
-    // Set Visual Awal dari Data Server
+    // 1. Set Visual Awal dari Data Server (yg sudah di-fetch di awal)
     if (tUts) tUts.checked = globalSettings.show_uts;
     if (tUas) tUas.checked = globalSettings.show_uas;
 
-    // Listener (Kirim ke Server)
+    // 2. Listener: Kalau diklik, KIRIM KE SERVER
     if (tUts) {
         tUts.addEventListener('change', (e) => {
             saveSettings({ show_uts: e.target.checked });
@@ -253,6 +266,7 @@ window.switchTab = function(targetId, btn) {
         b.className = "tab-btn px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
     });
     btn.className = "tab-btn active px-3 py-1.5 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
+    
     currentCategory = targetId.replace('list-', '');
     loadAdminData(currentCategory);
 }
@@ -324,7 +338,7 @@ window.deleteSchedule = async function(id, category) {
     } catch(e) { alert("Error koneksi."); }
 }
 
-// --- HEALTH TRACKER FUNCTIONS (SAMA SEPERTI SEBELUMNYA) ---
+// --- HEALTH TRACKER (ADMIN ONLY) ---
 function initHealthTracker() {
     calculateBMI();
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
@@ -340,18 +354,6 @@ function initHealthTracker() {
 function toggleSleep(isSleeping) {
     const now = new Date();
     if (isSleeping) {
-        // Lupa absen logic (3 pagi - 10 pagi)
-        const currentHour = now.getHours();
-        if (currentHour >= 3 && currentHour <= 10) {
-            if(confirm("Lupa absen tidur semalam? OK = Input Manual")) {
-                const m = prompt("Jam tidur (HH:MM):", "23:00");
-                if(m) {
-                    const [hh, mm] = m.split(':');
-                    now.setHours(hh, mm, 0);
-                    if (parseInt(hh) > currentHour) now.setDate(now.getDate() - 1);
-                }
-            }
-        }
         localStorage.setItem('steven_sleep_start', now.getTime());
         localStorage.removeItem('steven_wake_time'); 
         updateSleepUI(true, now);
