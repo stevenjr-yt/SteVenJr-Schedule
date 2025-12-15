@@ -5,15 +5,14 @@
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
+let currentCategory = 'daily'; 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Auth Check
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
     if (savedEmail && savedPass) {
         adminEmail = savedEmail;
         adminPassword = savedPass;
-        // Jika di halaman admin, load panel
         const adminPanel = document.getElementById('admin-panel');
         if (adminPanel) showAdminPanel();
     }
@@ -22,22 +21,27 @@ document.addEventListener('DOMContentLoaded', () => {
     updateClock();
     setInterval(updateClock, 1000);
 
-    // Deteksi Halaman
-    if (document.getElementById('admin-panel')) {
-        // --- LOGIC ADMIN ---
-        initAdminFeatures();
-    } else if (document.getElementById('main-dashboard')) {
-        // --- LOGIC DASHBOARD USER ---
-        initDashboardFeatures();
-    }
+    if (document.getElementById('admin-panel')) initAdminFeatures();
+    else if (document.getElementById('main-dashboard')) initDashboardFeatures();
 });
 
+// Update Jam dengan Detik + Update Jam Admin
 function updateClock() {
     const now = new Date();
     const clockEl = document.getElementById('digital-clock');
     const dateEl = document.getElementById('current-date');
-    if(clockEl) clockEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false }).replace(/:/g, '.');
+    const adminClockEl = document.getElementById('admin-realtime-clock');
+    
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    
+    // Index Dashboard Clock
+    if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
     if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Admin Navbar Clock
+    if(adminClockEl) adminClockEl.innerText = `${h}:${m}:${s}`;
 }
 
 // ==========================================
@@ -56,16 +60,12 @@ function initAdminFeatures() {
     initHealthTracker();
     initAdminToggles();
 
-    // REALTIME UPDATE SLEEP TIMER (Fix Bug Realtime)
+    // REALTIME UPDATE SLEEP TIMER
     setInterval(() => {
         const sleepStart = localStorage.getItem('steven_sleep_start');
         const wakeTime = localStorage.getItem('steven_wake_time');
-        
-        // Hanya update jika SEDANG TIDUR (Ada Start, Tidak ada Wake)
-        if (sleepStart && !wakeTime) {
-            updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
-        }
-    }, 1000); // Jalan tiap detik
+        if (sleepStart && !wakeTime) updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+    }, 1000);
 }
 
 function initAdminToggles() {
@@ -84,23 +84,16 @@ function initAdminToggles() {
 // --- SLEEP & HEALTH TRACKER ---
 function initHealthTracker() {
     calculateBMI();
-    
-    // Status Makan
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
     document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2') === 'true';
     document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3') === 'true';
 
-    // Status Tidur
     const sleepStart = localStorage.getItem('steven_sleep_start');
     const wakeTime = localStorage.getItem('steven_wake_time');
     
-    if (sleepStart && !wakeTime) {
-        updateSleepUI(true, new Date(parseInt(sleepStart))); // Sedang Tidur
-    } else if (sleepStart && wakeTime) {
-        updateSleepUI(false, new Date(parseInt(sleepStart)), new Date(parseInt(wakeTime))); // Sudah Bangun
-    } else {
-        updateEnergyUI(50); // Default
-    }
+    if (sleepStart && !wakeTime) updateSleepUI(true, new Date(parseInt(sleepStart)));
+    else if (sleepStart && wakeTime) updateSleepUI(false, new Date(parseInt(sleepStart)), new Date(parseInt(wakeTime)));
+    else updateEnergyUI(50);
     
     document.getElementById('water-count').innerText = localStorage.getItem('steven_water') || 0;
 }
@@ -108,12 +101,10 @@ function initHealthTracker() {
 function toggleSleep(isSleeping) {
     const now = new Date();
     if (isSleeping) {
-        // Mulai Tidur
         localStorage.setItem('steven_sleep_start', now.getTime());
         localStorage.removeItem('steven_wake_time'); 
         updateSleepUI(true, now);
     } else {
-        // Bangun
         const sleepStart = localStorage.getItem('steven_sleep_start');
         if (!sleepStart) return alert("Belum mulai tidur!");
         localStorage.setItem('steven_wake_time', now.getTime());
@@ -127,15 +118,15 @@ function updateSleepUI(isSleeping, sleepDate, wakeDate = null) {
     const statusText = document.getElementById('sleep-status-text');
     const displayS = document.getElementById('sleep-time-display');
     const displayW = document.getElementById('wake-time-display');
-    const formatTime = (d) => d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    const formatTime = (d) => { const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return `${h}.${m}`; };
 
     if (isSleeping) {
         btnSleep.classList.add('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = null;
         btnWake.classList.remove('opacity-50', 'cursor-not-allowed'); btnWake.onclick = () => toggleSleep(false);
         displayS.innerText = formatTime(sleepDate);
-        displayW.innerText = "--:--";
+        displayW.innerText = "--.--";
         statusText.innerText = "Zzz... Sedang Tidur";
-        updateEnergyUI(0); // Reset Energi saat tidur
+        updateEnergyUI(0);
     } else {
         btnSleep.classList.remove('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = () => toggleSleep(true);
         btnWake.classList.add('opacity-50', 'cursor-not-allowed'); btnWake.onclick = null;
@@ -153,28 +144,24 @@ function updateSleepDurationRealtime(startDate) {
     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const sec = Math.floor((diff % (1000 * 60)) / 1000);
     const textEl = document.getElementById('sleep-duration-text');
-    if(textEl) textEl.innerText = `Tidur: ${hrs}j ${mins}m ${sec}d`; // Realtime detik
+    if(textEl) textEl.innerText = `Tidur: ${hrs}j ${mins}m ${sec}d`;
 }
 
 function calculateTotalEnergy(sleepDate, wakeDate) {
-    // Rumus Energi: (Durasi Tidur/8jam * 100) + (Makan*15) - (Ceklis*5)
     const diffMs = wakeDate - sleepDate;
     const diffHours = diffMs / (1000 * 60 * 60);
     let energy = (diffHours / 8) * 100;
     
-    // Makan
     if (document.getElementById('eat-1').checked) energy += 15;
     if (document.getElementById('eat-2').checked) energy += 15;
     if (document.getElementById('eat-3').checked) energy += 15;
 
-    // Aktivitas
     const checkedTasks = document.querySelectorAll('.check-anim:checked').length;
     energy -= (checkedTasks * 5);
 
     if (energy > 100) energy = 100;
     if (energy < 0) energy = 0;
 
-    // Teks Durasi Static
     const hrs = Math.floor(diffHours);
     const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     const textEl = document.getElementById('sleep-duration-text');
@@ -197,8 +184,6 @@ function updateEnergyFromFood() {
     localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked);
     localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked);
     localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked);
-    
-    // Recalc
     const s = localStorage.getItem('steven_sleep_start');
     const w = localStorage.getItem('steven_wake_time');
     if (s && w) calculateTotalEnergy(new Date(parseInt(s)), new Date(parseInt(w)));
@@ -206,7 +191,7 @@ function updateEnergyFromFood() {
 
 function calculateBMI() {
     const w = parseFloat(document.getElementById('input-bb').value) || 50;
-    const h = 1.8; // 180cm
+    const h = 1.8; 
     const bmi = (w / (h*h)).toFixed(1);
     const res = document.getElementById('bmi-result');
     let st = bmi < 18.5 ? "KURUS" : bmi < 25 ? "IDEAL" : "GEMUK";
@@ -220,18 +205,16 @@ function updateWater(n) {
     localStorage.setItem('steven_water', cur);
 }
 
-// --- DAILY CHECKLIST (ADMIN) ---
 async function loadDailyChecklist() {
     const container = document.getElementById('daily-checklist-container');
     const dateDisplay = document.getElementById('date-today-display');
     if (!container) return;
 
-    // Fix Tanggal Lokal
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const tglIni = `${year}-${month}-${day}`; // Format YYYY-MM-DD
+    const tglIni = `${year}-${month}-${day}`; 
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()];
 
@@ -251,11 +234,8 @@ async function loadDailyChecklist() {
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Logic Filter Hari Ini
         const isToday = (item) => {
-            // Prioritas Tanggal
             if (item.tanggal && item.tanggal === tglIni) return true;
-            // Jika tidak ada tanggal, cek Hari (case insensitive)
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
             return false;
         };
@@ -292,10 +272,7 @@ async function loadDailyChecklist() {
                 </div>
             </div>`;
         });
-        
-        // Recalc energi setelah list checklist muncul
         updateEnergyFromFood();
-
     } catch (e) {
         console.error(e);
         container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal load data.</p>';
@@ -304,7 +281,7 @@ async function loadDailyChecklist() {
 
 window.toggleCheck = function(id, el) {
     localStorage.setItem(id, el.checked);
-    updateEnergyFromFood(); // Update energi
+    updateEnergyFromFood(); 
 }
 
 // ==========================================
@@ -312,8 +289,6 @@ window.toggleCheck = function(id, el) {
 // ==========================================
 function initDashboardFeatures() {
     loadTodaySchedule();
-    
-    // Auto Sync Toggle dari Admin
     window.addEventListener('storage', (event) => {
         if (event.key === 'show_uts' || event.key === 'show_uas') {
             loadTodaySchedule();
@@ -322,7 +297,6 @@ function initDashboardFeatures() {
     });
 }
 
-// --- LOAD JADWAL DASHBOARD ---
 async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
@@ -350,7 +324,6 @@ async function loadTodaySchedule() {
         const uas = resUas.ok ? await resUas.json() : [];
         const personal = resPersonal.ok ? await resPersonal.json() : [];
 
-        // Logic Filter Sama Persis Admin
         const isToday = (item) => {
             if (item.tanggal && item.tanggal === tglIni) return true;
             if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
@@ -368,8 +341,6 @@ async function loadTodaySchedule() {
         ];
 
         list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-
-        // Hitung Simple Busyness (Level Kesibukan utk Index)
         calculateSimpleBusyness(list);
 
         if (list.length === 0) {
@@ -405,7 +376,6 @@ function calculateSimpleBusyness(items) {
     const advice = document.getElementById('busy-advice');
     
     if (bar && text) {
-        // Skala: 8 jam (480 menit) = 100% Sibuk
         let percent = Math.round((totalMinutes / 480) * 100);
         if(percent > 100) percent = 100;
         
@@ -425,15 +395,16 @@ function calculateSimpleBusyness(items) {
     }
 }
 
-// --- CRUD HELPER (DB Admin) ---
 window.switchTab = function(targetId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => {
-        b.className = "tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0";
+        b.className = "tab-btn px-3 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition";
     });
-    btn.className = "tab-btn active px-3 py-1 text-[10px] font-bold bg-white shadow-sm rounded text-indigo-600 flex-shrink-0 border";
-    loadAdminData(targetId.replace('list-', ''));
+    btn.className = "tab-btn active px-3 py-1 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
+    
+    currentCategory = targetId.replace('list-', '');
+    loadAdminData(currentCategory);
 }
 
 async function loadAdminData(category) {
@@ -446,13 +417,14 @@ async function loadAdminData(category) {
         const data = await res.json();
         container.innerHTML = ''; 
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
+        
         data.forEach(item => {
             const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
             container.innerHTML += `
                 <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
                     <div class="overflow-hidden w-full pr-2">
                         <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
-                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-blue-500">${item.waktu}</span></div>
+                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
                     </div>
                     <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
                 </div>`;
@@ -486,8 +458,11 @@ if (addForm) {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify(rawData)
             });
             if (res.ok) {
-                alert("Tersimpan!"); addForm.reset(); if(window.toggleFormFields) window.toggleFormFields(); 
-                loadAdminData(rawData.kategori); loadDailyChecklist();
+                alert("Tersimpan!"); 
+                addForm.reset(); 
+                if(window.toggleFormFields) window.toggleFormFields(); 
+                loadAdminData(rawData.kategori); 
+                loadDailyChecklist();
             } else { alert("Gagal simpan."); }
         } catch (err) { alert("Error sistem."); }
     });
@@ -499,4 +474,46 @@ window.deleteSchedule = async function(id, category) {
         const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } });
         if(res.ok) { loadAdminData(category); loadDailyChecklist(); }
     } catch(e) { alert("Error koneksi."); }
+}
+
+const loginBtn = document.getElementById('btn-login');
+if (loginBtn) {
+    loginBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        const errorMsg = document.getElementById('login-error');
+        errorMsg.style.display = 'none';
+
+        if(!email || !pass) { errorMsg.innerText = "Isi email & password!"; errorMsg.style.display = 'block'; return; }
+
+        loginBtn.innerText = "Memeriksa..."; loginBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/login', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: pass }) 
+            });
+            if (res.ok) {
+                adminEmail = email; adminPassword = pass; 
+                localStorage.setItem('admin_email', email); localStorage.setItem('admin_password', pass); 
+                showAdminPanel();
+            } else {
+                throw new Error("Akses Ditolak."); 
+            }
+        } catch (err) {
+            errorMsg.innerText = err.message; errorMsg.style.display = 'block';
+        } finally {
+            loginBtn.innerText = "UNLOCK"; loginBtn.disabled = false;
+        }
+    });
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+        if(confirm("Logout dari sistem?")) {
+            localStorage.removeItem('admin_email'); localStorage.removeItem('admin_password');
+            location.reload();
+        }
+    });
 }
