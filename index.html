@@ -1,73 +1,443 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <link rel="icon" type="image/png" href="favicon.png">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SteVenJr OS - Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script> tailwind.config = { theme: { extend: { fontFamily: { sans: ['Poppins', 'sans-serif'] }, colors: { primary: '#4f46e5' } } } } </script>
-    <style> body { background-color: #f8fafc; } .widget-scroll::-webkit-scrollbar { width: 4px; } .widget-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } </style>
-</head>
-<body class="text-gray-800 min-h-screen flex flex-col items-center py-10 relative">
+// File: app.js (REPLACE ALL)
 
-    <div class="absolute top-5 right-5 z-50">
-        <a href="admin.html" class="block w-12 h-12 rounded-full bg-white hover:bg-indigo-50 text-indigo-600 transition shadow-lg flex items-center justify-center border border-indigo-100 group"><i class="fas fa-fingerprint text-xl group-hover:scale-110 transition"></i></a>
-    </div>
+let adminPassword = null; 
+let adminEmail = null;
+let currentCategory = 'daily'; 
+let globalSettings = { show_uts: false, show_uas: false }; 
 
-    <div id="main-dashboard" class="w-[95%] max-w-md transition-all duration-300">
-        <div class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-indigo-900 tracking-tight mb-1">SteVenJr <span class="text-indigo-500">OS</span></h1>
-            <p class="text-xs text-gray-400 font-medium mb-8">Personal Life Assistant</p>
-            <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-indigo-50 relative overflow-hidden group">
-                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 group-hover:h-2 transition-all"></div>
-                <p id="current-date" class="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-2">...</p>
-                <div id="digital-clock" class="text-5xl font-black text-gray-800 tracking-tighter">00.00.00</div>
-            </div>
-        </div>
+// --- ERROR HANDLER ---
+function showError(msg) {
+    const banner = document.getElementById('db-error-banner');
+    if(banner) {
+        banner.classList.remove('hidden');
+        banner.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${msg}`;
+    }
+}
 
-        <div class="bg-slate-900 rounded-2xl p-6 mb-8 text-white shadow-xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-5"><i class="fas fa-bolt text-6xl"></i></div>
-            <div class="flex justify-between items-center mb-4 relative z-10"><span class="text-xs font-bold text-slate-300 uppercase tracking-wider"><i class="fas fa-chart-line text-yellow-400 mr-2"></i>Daily Load</span><span id="energy-level" class="text-2xl font-black text-white">0%</span></div>
-            <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden relative z-10"><div id="energy-bar" class="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style="width: 0%"></div></div>
-            <p class="text-[10px] text-slate-400 mt-3 text-center italic opacity-80" id="busy-advice">"Menghitung jadwal..."</p>
-        </div>
+document.addEventListener('DOMContentLoaded', () => {
+    const savedEmail = localStorage.getItem('admin_email');
+    const savedPass = localStorage.getItem('admin_password');
+    if (savedEmail && savedPass) {
+        adminEmail = savedEmail;
+        adminPassword = savedPass;
+        if (document.getElementById('admin-panel')) showAdminPanel();
+    }
 
-        <div class="grid grid-cols-1 gap-4 mb-8">
-            <div id="exam-buttons-container" class="flex gap-3 hidden animate-fade-in-up">
-                <button id="btn-menu-uts" onclick="switchView('uts')" class="hidden flex-1 bg-gradient-to-r from-orange-400 to-orange-500 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-orange-200"><i class="fas fa-file-alt"></i> UTS</button>
-                <button id="btn-menu-uas" onclick="switchView('uas')" class="hidden flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg hover:-translate-y-1 transition items-center justify-center gap-2 text-sm shadow-purple-200"><i class="fas fa-graduation-cap"></i> UAS</button>
-            </div>
-            <button onclick="switchView('daily')" class="bg-white text-indigo-700 border border-indigo-100 py-4 rounded-2xl font-bold hover:bg-indigo-50 hover:border-indigo-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group"><i class="fas fa-university text-indigo-400 group-hover:scale-110 transition"></i> Jadwal Kuliah</button>
-            <button onclick="switchView('personal')" class="bg-white text-gray-600 border border-gray-100 py-4 rounded-2xl font-bold hover:bg-gray-50 hover:border-gray-200 transition flex items-center justify-center gap-3 text-sm shadow-sm hover:shadow-md group"><i class="fas fa-user text-gray-400 group-hover:scale-110 transition"></i> Agenda Pribadi</button>
-        </div>
+    updateClock();
+    setInterval(updateClock, 1000);
 
-        <div class="text-left">
-            <h2 class="text-xs font-bold mb-4 text-gray-400 uppercase tracking-widest ml-2">Timeline Hari Ini</h2>
-            <div id="today-schedule-container" class="space-y-4 min-h-[100px]"><p class="text-center text-gray-400 text-xs py-5">Memuat data...</p></div>
-        </div>
-    </div>
+    // Load Data
+    if (document.getElementById('admin-panel')) initAdminFeatures();
+    else if (document.getElementById('main-dashboard')) initDashboardFeatures();
 
-    <div id="schedule-view" class="hidden w-[95%] max-w-4xl mt-5 pb-20 animate-fade-in-up">
-        <header class="bg-white p-5 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border border-gray-100 sticky top-5 z-40">
-            <div class="text-center md:text-left"><h1 class="text-xl font-bold text-gray-800">Daftar Jadwal</h1><span id="page-category-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 inline-block uppercase mt-1">...</span></div>
-            <div class="flex gap-2 w-full md:w-auto"><div class="relative flex-grow"><input type="text" id="searchInput" onkeyup="searchSchedule()" placeholder="Cari..." class="pl-9 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-100 w-full text-xs transition"><i class="fas fa-search absolute left-3 top-3 text-gray-400 text-xs"></i></div><button onclick="location.reload()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition text-xs shadow-lg"><i class="fas fa-times"></i></button></div>
-        </header>
-        <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100"><div class="overflow-x-auto"><table class="w-full text-left border-collapse"><tbody id="schedule-table-body" class="divide-y divide-gray-50 text-gray-600 text-sm"></tbody></table></div></div>
-    </div>
+    // Load Settings Background
+    fetchSettings().then(() => {
+        if(window.updateDashboardMenu) updateDashboardMenu();
+        if(window.initAdminToggles) initAdminToggles();
+        if(document.getElementById('main-dashboard')) loadTodaySchedule();
+    });
+});
 
-    <script src="app.js"></script>
-    <script>
-        function rowWidget(i, c) {
-            let colors = { 'orange': 'border-orange-500 bg-orange-50/50 text-orange-900', 'purple': 'border-purple-500 bg-purple-50/50 text-purple-900', 'blue': 'border-indigo-500 bg-indigo-50/50 text-indigo-900', 'green': 'border-emerald-500 bg-emerald-50/50 text-emerald-900' }[c] || 'border-gray-500 bg-gray-50 text-gray-900';
-            let detail = (c === 'green') ? (i.keterangan || 'Agenda Pribadi') : `${i.ruangan || 'TBD'} • ${i.kelas || '-'}`;
-            let icon = (c === 'green') ? 'fa-user' : 'fa-book';
-            return `<div class="relative pl-4 group"><div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-100 rounded-full group-last:bottom-auto group-last:h-full"></div><div class="absolute left-[-3px] top-6 w-2.5 h-2.5 rounded-full border-2 border-white ${c === 'green' ? 'bg-emerald-400' : 'bg-indigo-400'} ring-2 ring-gray-100"></div><div class="${colors} border-l-0 p-4 rounded-2xl mb-3 shadow-sm relative overflow-hidden transition hover:-translate-y-1 hover:shadow-md"><div class="flex justify-between items-start relative z-10"><div><span class="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1 block">${i.type || i.label || 'KEGIATAN'}</span><h4 class="font-bold text-base leading-tight mb-1 text-gray-800">${i.matkul || i.nama_kegiatan || 'No Title'}</h4><p class="text-xs opacity-70 flex items-center gap-1"><i class="fas ${icon} text-[10px]"></i> ${detail}</p></div><div class="text-right"><div class="bg-white/60 backdrop-blur px-2 py-1 rounded-lg text-xs font-bold shadow-sm border border-white/20 whitespace-nowrap">${i.waktu}</div></div></div></div></div>`;
+async function fetchSettings() {
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) globalSettings = await res.json();
+        else throw new Error("API Settings Error");
+    } catch (e) { 
+        console.warn("Settings offline:", e); 
+        // Jangan show error banner dulu, mungkin cuma settingan belum ada
+    }
+}
+
+async function saveSettings(newStatus) {
+    try {
+        globalSettings = { ...globalSettings, ...newStatus }; 
+        await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(globalSettings) });
+    } catch (e) { alert("Gagal simpan setting!"); }
+}
+
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const clockEl = document.getElementById('digital-clock');
+    const dateEl = document.getElementById('current-date');
+    const adminClock = document.getElementById('admin-realtime-clock');
+    if(clockEl) clockEl.innerText = `${h}.${m}.${s}`;
+    if(dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if(adminClock) adminClock.innerText = `${h}:${m}:${s}`;
+}
+
+// --- DASHBOARD LOGIC ---
+function initDashboardFeatures() {
+    updateDashboardMenu(); 
+    loadTodaySchedule(); 
+    setInterval(() => { fetchSettings().then(() => { updateDashboardMenu(); loadTodaySchedule(); }); }, 5000);
+}
+
+function updateDashboardMenu() {
+    const utsBtn = document.getElementById('btn-menu-uts');
+    const uasBtn = document.getElementById('btn-menu-uas');
+    const container = document.getElementById('exam-buttons-container');
+    if(!container) return;
+    if (globalSettings.show_uts || globalSettings.show_uas) {
+        container.classList.remove('hidden'); container.classList.add('flex');
+        if(utsBtn) utsBtn.classList.toggle('hidden', !globalSettings.show_uts);
+        if(uasBtn) uasBtn.classList.toggle('hidden', !globalSettings.show_uas);
+        if(globalSettings.show_uts) utsBtn.classList.add('flex');
+        if(globalSettings.show_uas) uasBtn.classList.add('flex');
+    } else { container.classList.add('hidden'); container.classList.remove('flex'); }
+}
+
+window.loadScheduleData = async function(category) {
+    const tableBody = document.getElementById('schedule-table-body');
+    const titleBadge = document.getElementById('page-category-badge');
+    if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
+    if(titleBadge) titleBadge.innerText = category.toUpperCase();
+
+    try {
+        const res = await fetch(`/api/schedule?category=${category}`);
+        if(!res.ok) throw new Error("Gagal Fetch API");
+        const data = await res.json();
+        
+        if(!tableBody) return;
+        tableBody.innerHTML = '';
+        if (!data || data.length === 0) { tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Data Kosong</td></tr>`; return; }
+
+        if (category === 'daily') {
+            const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
+            data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
+        } else {
+            data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
         }
-        function switchView(type) { document.getElementById('main-dashboard').style.display = 'none'; document.getElementById('schedule-view').style.display = 'block'; window.scrollTo(0,0); if(window.loadScheduleData) window.loadScheduleData(type); }
-        function searchSchedule() { const input = document.getElementById('searchInput').value.toLowerCase(); const rows = document.querySelectorAll('#schedule-table-body tr'); rows.forEach(row => { row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none'; }); }
-    </script>
-</body>
-</html>
+
+        data.forEach(item => {
+            const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
+            const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
+            tableBody.innerHTML += `
+            <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm">
+                <td class="p-4 align-top w-24"><div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div><div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div></td>
+                <td class="p-4 align-top"><div class="font-bold text-gray-800 text-sm">${item.matkul || item.nama_kegiatan}</div><div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div></td>
+                <td class="p-4 align-top text-right"><span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span></td>
+            </tr>`;
+        });
+    } catch (error) {
+        console.error(error);
+        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
+        showError("Gagal mengambil daftar jadwal. Cek koneksi internet.");
+    }
+}
+
+async function loadTodaySchedule() {
+    const container = document.getElementById('today-schedule-container');
+    if (!container) return;
+    const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const tglIni = `${year}-${month}-${day}`; const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']; const hariIni = days[now.getDay()];
+
+    try {
+        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
+            fetch('/api/schedule?category=daily'),
+            fetch('/api/schedule?category=uts'),
+            fetch('/api/schedule?category=uas'),
+            fetch('/api/schedule?category=personal')
+        ]);
+
+        if(!resDaily.ok) throw new Error("API Error");
+
+        const daily = await resDaily.json();
+        const uts = await resUts.json();
+        const uas = await resUas.json();
+        const personal = await resPersonal.json();
+
+        const isToday = (item) => {
+            if (item.tanggal && item.tanggal === tglIni) return true;
+            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
+            return false;
+        };
+
+        const list = [
+            ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
+            ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
+            ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
+            ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
+        ];
+
+        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+        calculateSimpleBusyness(list);
+
+        if (list.length === 0) {
+            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(item => {
+             if(window.rowWidget) return window.rowWidget(item, item.c);
+             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
+        }).join('');
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal hari ini.</p>';
+        showError("Database Gagal diakses! Cek file api/schedule.js");
+    }
+}
+
+// Logic Bar Kesibukan Index
+function calculateSimpleBusyness(items) {
+    let totalMinutes = 0;
+    items.forEach(item => {
+        if(item.waktu && item.waktu.includes('-')) {
+            const [start, end] = item.waktu.split('-');
+            try {
+                const [sh, sm] = start.split(/[:.]/).map(Number);
+                const [eh, em] = end.split(/[:.]/).map(Number);
+                totalMinutes += ((eh*60+em) - (sh*60+sm));
+            } catch(e) { totalMinutes += 60; }
+        } else { totalMinutes += 60; }
+    });
+
+    const bar = document.getElementById('energy-bar'); 
+    const text = document.getElementById('energy-level');
+    const advice = document.getElementById('busy-advice');
+    
+    if (bar && text && !document.getElementById('admin-panel')) {
+        let percent = Math.round((totalMinutes / 480) * 100);
+        if(percent > 100) percent = 100;
+        text.innerText = `${percent}%`;
+        bar.style.width = `${percent}%`;
+        if (percent > 80) { bar.className = "h-full bg-red-500 transition-all duration-1000"; if(advice) advice.innerText = "Sangat Sibuk!"; } 
+        else if (percent > 40) { bar.className = "h-full bg-indigo-500 transition-all duration-1000"; if(advice) advice.innerText = "Produktif."; } 
+        else { bar.className = "h-full bg-green-500 transition-all duration-1000"; if(advice) advice.innerText = "Santai."; }
+    }
+}
+
+// ==========================================
+// 3. LOGIC ADMIN
+// ==========================================
+function showAdminPanel() {
+    const loginForm = document.getElementById('login-form');
+    const adminPanel = document.getElementById('admin-panel');
+    if(loginForm) loginForm.style.display = 'none';
+    if(adminPanel) adminPanel.style.display = 'block';
+}
+
+function initAdminFeatures() {
+    loadAdminData('daily'); 
+    loadDailyChecklist(); 
+    initHealthTracker();
+    initAdminToggles(); 
+    setInterval(() => {
+        const sleepStart = localStorage.getItem('steven_sleep_start');
+        const wakeTime = localStorage.getItem('steven_wake_time');
+        if (sleepStart && !wakeTime) updateSleepDurationRealtime(new Date(parseInt(sleepStart)));
+    }, 1000);
+}
+
+function initAdminToggles() {
+    const tUts = document.getElementById('toggle-uts');
+    const tUas = document.getElementById('toggle-uas');
+    if (tUts) { tUts.checked = globalSettings.show_uts; tUts.addEventListener('change', (e) => saveSettings({ show_uts: e.target.checked })); }
+    if (tUas) { tUas.checked = globalSettings.show_uas; tUas.addEventListener('change', (e) => saveSettings({ show_uas: e.target.checked })); }
+}
+
+window.switchTab = function(targetId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => { b.className = "tab-btn px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded flex-shrink-0 transition"; });
+    btn.className = "tab-btn active px-3 py-1.5 text-[10px] font-bold bg-indigo-50 border border-indigo-100 shadow-sm rounded-lg text-indigo-700 flex-shrink-0 transition";
+    currentCategory = targetId.replace('list-', '');
+    loadAdminData(currentCategory);
+}
+
+async function loadAdminData(category) {
+    const container = document.getElementById(`list-${category}`);
+    if(!container) return;
+    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Loading...</div>';
+    if (!adminPassword) return;
+    try {
+        const res = await fetch(`/api/schedule?category=${category}`);
+        if(!res.ok) throw new Error("API Fail");
+        const data = await res.json();
+        container.innerHTML = ''; 
+        if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
+        
+        data.forEach(item => {
+            const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
+            container.innerHTML += `
+                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                    <div class="overflow-hidden w-full pr-2">
+                        <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
+                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
+                    </div>
+                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                </div>`;
+        });
+    } catch(e) { 
+        container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Error</div>'; 
+        showError("Database Admin Gagal Load");
+    }
+}
+
+const addForm = document.getElementById('add-schedule-form');
+if (addForm) {
+    addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!adminPassword) { alert("Login dulu!"); return; }
+        const rawData = {
+            kategori: document.getElementById('kategori').value,
+            matkul: document.getElementById('matkul').value,
+            hari: document.getElementById('hari').value,
+            tanggal: document.getElementById('tanggal').value,
+            waktu: document.getElementById('waktu').value,
+            ruangan: document.getElementById('ruangan').value,
+            kode: document.getElementById('kode').value,
+            dosen: document.getElementById('dosen').value,
+            kelas: document.getElementById('kelas').value,
+            tipe: document.getElementById('tipe').value,
+            keterangan: document.getElementById('keterangan').value,
+        };
+        if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = "";
+        if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
+
+        try {
+            const res = await fetch('/api/schedule', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify(rawData)
+            });
+            if (res.ok) {
+                alert("Tersimpan!"); addForm.reset(); 
+                if(window.toggleFormFields) window.toggleFormFields(); 
+                loadAdminData(rawData.kategori); loadDailyChecklist();
+            } else { alert("Gagal simpan."); }
+        } catch (err) { alert("Error sistem."); }
+    });
+}
+
+window.deleteSchedule = async function(id, category) {
+    if(!confirm("Hapus?")) return;
+    try {
+        const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } });
+        if(res.ok) { loadAdminData(category); loadDailyChecklist(); }
+    } catch(e) { alert("Error koneksi."); }
+}
+
+// --- HEALTH TRACKER ---
+function initHealthTracker() {
+    calculateBMI();
+    document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
+    document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2') === 'true';
+    document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3') === 'true';
+    const sleepStart = localStorage.getItem('steven_sleep_start');
+    const wakeTime = localStorage.getItem('steven_wake_time');
+    if (sleepStart && !wakeTime) updateSleepUI(true, new Date(parseInt(sleepStart)));
+    else if (sleepStart && wakeTime) updateSleepUI(false, new Date(parseInt(sleepStart)), new Date(parseInt(wakeTime)));
+    else updateEnergyUI(50);
+    document.getElementById('water-count').innerText = localStorage.getItem('steven_water') || 0;
+}
+function toggleSleep(isSleeping) {
+    const now = new Date();
+    if (isSleeping) {
+        localStorage.setItem('steven_sleep_start', now.getTime());
+        localStorage.removeItem('steven_wake_time'); 
+        updateSleepUI(true, now);
+    } else {
+        const sleepStart = localStorage.getItem('steven_sleep_start');
+        if (!sleepStart) return alert("Belum mulai tidur!");
+        localStorage.setItem('steven_wake_time', now.getTime());
+        updateSleepUI(false, new Date(parseInt(sleepStart)), now);
+    }
+}
+function updateSleepUI(isSleeping, sleepDate, wakeDate = null) {
+    const btnSleep = document.getElementById('btn-sleep');
+    const btnWake = document.getElementById('btn-wake');
+    const statusText = document.getElementById('sleep-status-text');
+    const displayS = document.getElementById('sleep-time-display');
+    const displayW = document.getElementById('wake-time-display');
+    const formatTime = (d) => { const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return `${h}.${m}`; };
+    if (isSleeping) {
+        btnSleep.classList.add('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = null;
+        btnWake.classList.remove('opacity-50', 'cursor-not-allowed'); btnWake.onclick = () => toggleSleep(false);
+        displayS.innerText = formatTime(sleepDate); displayW.innerText = "--.--"; statusText.innerText = "Zzz..."; updateEnergyUI(0);
+    } else {
+        btnSleep.classList.remove('opacity-50', 'cursor-not-allowed'); btnSleep.onclick = () => toggleSleep(true);
+        btnWake.classList.add('opacity-50', 'cursor-not-allowed'); btnWake.onclick = null;
+        displayS.innerText = formatTime(sleepDate); if(wakeDate) displayW.innerText = formatTime(wakeDate); statusText.innerText = "Siap!"; if(wakeDate) calculateTotalEnergy(sleepDate, wakeDate);
+    }
+}
+function updateSleepDurationRealtime(startDate) {
+    const now = new Date();
+    const diff = now - startDate;
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const sec = Math.floor((diff % (1000 * 60)) / 1000);
+    const textEl = document.getElementById('sleep-duration-text');
+    if(textEl) textEl.innerText = `Tidur: ${hrs}j ${mins}m ${sec}d`;
+}
+function calculateTotalEnergy(sleepDate, wakeDate) {
+    const diffMs = wakeDate - sleepDate;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    let energy = (diffHours / 8) * 100;
+    if (document.getElementById('eat-1').checked) energy += 15;
+    if (document.getElementById('eat-2').checked) energy += 15;
+    if (document.getElementById('eat-3').checked) energy += 15;
+    const checkedTasks = document.querySelectorAll('.check-anim:checked').length;
+    energy -= (checkedTasks * 5);
+    if (energy > 100) energy = 100; if (energy < 0) energy = 0;
+    const hrs = Math.floor(diffHours); const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const textEl = document.getElementById('sleep-duration-text'); if(textEl) textEl.innerText = `Total: ${hrs}j ${mins}m`;
+    updateEnergyUI(Math.round(energy));
+}
+function updateEnergyUI(value) {
+    const bar = document.getElementById('energy-bar'); const text = document.getElementById('energy-level');
+    if (bar && text) { bar.style.width = `${value}%`; text.innerText = `${value}%`; bar.className = `h-full transition-all duration-500 ${value > 50 ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`; }
+}
+function updateEnergyFromFood() {
+    localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked);
+    localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked);
+    localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked);
+    const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time');
+    if (s && w) calculateTotalEnergy(new Date(parseInt(s)), new Date(parseInt(w)));
+}
+function calculateBMI() {
+    const w = parseFloat(document.getElementById('input-bb').value) || 50; const h = 1.8; 
+    const bmi = (w / (h*h)).toFixed(1); const res = document.getElementById('bmi-result');
+    let st = bmi < 18.5 ? "KURUS" : bmi < 25 ? "IDEAL" : "GEMUK"; res.innerText = `BMI: ${bmi} (${st})`;
+}
+function updateWater(n) {
+    let cur = parseInt(document.getElementById('water-count').innerText) + n; if (cur < 0) cur = 0;
+    document.getElementById('water-count').innerText = cur; localStorage.setItem('steven_water', cur);
+}
+async function loadDailyChecklist() {
+    const container = document.getElementById('daily-checklist-container'); const dateDisplay = document.getElementById('date-today-display');
+    if (!container) return;
+    const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const tglIni = `${year}-${month}-${day}`; 
+    if(dateDisplay) dateDisplay.innerText = `${day}/${month}`;
+    container.innerHTML = '<p class="text-center text-xs text-gray-400">Loading...</p>';
+    try {
+        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([fetch('/api/schedule?category=daily'), fetch('/api/schedule?category=uts'), fetch('/api/schedule?category=uas'), fetch('/api/schedule?category=personal')]);
+        const daily = resDaily.ok ? await resDaily.json() : []; const uts = resUts.ok ? await resUts.json() : []; const uas = resUas.ok ? await resUas.json() : []; const personal = resPersonal.ok ? await resPersonal.json() : [];
+        const isToday = (item) => { if (item.tanggal && item.tanggal === tglIni) return true; if (!item.tanggal && (item.hari || "").toLowerCase() === ['minggu','senin','selasa','rabu','kamis','jumat','sabtu'][now.getDay()] ) return true; return false; };
+        const list = [...uts.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'orange'})), ...uas.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'purple'})), ...daily.filter(isToday).map(i=>({...i, c:'blue'})), ...personal.filter(isToday).map(i=>({...i, c:'green'}))];
+        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+        if (list.length === 0) { container.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Kosong</div>`; return; }
+        container.innerHTML = "";
+        list.forEach((item, index) => {
+            const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
+            const title = item.matkul || item.nama_kegiatan || "Kegiatan";
+            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
+        });
+        updateEnergyFromFood();
+    } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Error</p>'; showError("Gagal load checklist."); }
+}
+window.toggleCheck = function(id, el) { localStorage.setItem(id, el.checked); updateEnergyFromFood(); }
+const loginBtn = document.getElementById('btn-login');
+if (loginBtn) {
+    loginBtn.addEventListener('click', async (e) => {
+        e.preventDefault(); const email = document.getElementById('email').value; const pass = document.getElementById('password').value;
+        if(!email || !pass) return alert("Isi Data!");
+        try {
+            const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: pass }) });
+            if (res.ok) { localStorage.setItem('admin_email', email); localStorage.setItem('admin_password', pass); showAdminPanel(); } else { alert("Salah!"); }
+        } catch (err) { alert("Error"); }
+    });
+}
+const btnLogout = document.getElementById('btn-logout'); if (btnLogout) btnLogout.addEventListener('click', () => { if(confirm("Logout?")) { localStorage.clear(); location.reload(); }});
