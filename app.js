@@ -154,6 +154,113 @@ function isTimeConflict(existingWaktu, newWaktu) {
     }
 }
 
+// ==========================================
+// FITUR BARU: INDIKATOR KESIBUKAN (STEVEN'S RULE)
+// ==========================================
+
+function calculateBusyness(schedules) {
+    let totalMinutes = 0;
+    let maxEndTime = 0; // Untuk melacak jam berapa kegiatan terakhir selesai
+
+    schedules.forEach(item => {
+        // Logika Parse Waktu (08:00-10:00)
+        let startMin = 0;
+        let endMin = 0;
+
+        try {
+            if (item.waktu.includes('-')) {
+                const parts = item.waktu.split('-');
+                const s = parts[0].trim().split(/[:.]/).map(Number);
+                const e = parts[1].trim().split(/[:.]/).map(Number);
+                
+                startMin = (s[0] * 60) + s[1];
+                endMin = (e[0] * 60) + e[1];
+                
+                if (endMin > startMin) totalMinutes += (endMin - startMin);
+            } else {
+                // Jika format single (08:00), asumsi durasi 60 menit
+                const s = item.waktu.trim().split(/[:.]/).map(Number);
+                startMin = (s[0] * 60) + s[1];
+                endMin = startMin + 60; 
+                totalMinutes += 60;
+            }
+
+            // Cek jam selesai paling malam
+            if (endMin > maxEndTime) {
+                maxEndTime = endMin;
+            }
+
+        } catch (err) { console.error("Skip error time", err); }
+    });
+
+    updateBusynessUI(totalMinutes, maxEndTime);
+}
+
+function updateBusynessUI(totalMinutes, maxEndTime) {
+    const totalHours = (totalMinutes / 60).toFixed(1);
+    
+    const statusText = document.getElementById('busy-status-text');
+    const hoursText = document.getElementById('total-hours-text');
+    const bar = document.getElementById('busy-progress-bar');
+    const advice = document.getElementById('busy-advice');
+
+    if (!statusText) return;
+
+    // --- LOGIKA UTAMA (RULE JAM 18:00) ---
+    // 18:00 = 18 * 60 = 1080 menit dari jam 00:00
+    const limitSore = 18 * 60; 
+    let level = {};
+
+    // Skenario 1: Ada kegiatan LEWAT jam 18:00 (Malam)
+    if (maxEndTime > limitSore) {
+        level = {
+            status: "LEMBUR / EXTRA 🔥",
+            color: "bg-purple-600",
+            textCol: "text-purple-600",
+            percent: 100,
+            msg: "Ada agenda malam ini. Jaga kesehatan, jangan lupa makan malam!"
+        };
+    } 
+    // Skenario 2: Total jam kerja > 8 jam (Overload)
+    else if (totalHours > 8) {
+        level = {
+            status: "SANGAT SIBUK 💀",
+            color: "bg-red-500",
+            textCol: "text-red-500",
+            percent: 90,
+            msg: "Hari yang panjang. Segera istirahat jam 6 sore nanti!"
+        };
+    }
+    // Skenario 3: Produktif (4 - 8 Jam)
+    else if (totalHours >= 4) {
+        level = {
+            status: "PRODUKTIF ✅",
+            color: "bg-green-500",
+            textCol: "text-green-600",
+            percent: 60,
+            msg: "Performa optimal. Selesaikan sebelum jam 6 sore."
+        };
+    }
+    // Skenario 4: Santai (< 4 Jam)
+    else {
+        level = {
+            status: "SANTAI / LIGHT ☕",
+            color: "bg-blue-400",
+            textCol: "text-blue-500",
+            percent: 30,
+            msg: "Jadwal longgar. Waktunya 'Me Time' atau hobi."
+        };
+    }
+
+    // Update UI
+    hoursText.innerText = totalHours;
+    statusText.innerText = level.status;
+    statusText.className = `text-xl font-bold ${level.textCol}`;
+    bar.className = `h-full rounded-full transition-all duration-1000 ease-out ${level.color}`;
+    bar.style.width = `${level.percent}%`;
+    advice.innerText = `"${level.msg}"`;
+}
+
 
 // ==========================================
 // 3. LOGIC UTAMA (PUBLIC VIEW - TABEL)
@@ -392,6 +499,18 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
+    // Di dalam loadTodaySchedule(), setelah combinedToday.sort(...)
+
+        // ... kode sorting ...
+        combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+
+        // >>> TAMBAHKAN BARIS INI <<<
+        calculateBusyness(combinedToday); 
+        // >>> ------------------- <<<
+
+        if (combinedToday.length === 0) {
+            // ... dst
+
     container.innerHTML = `<div class="text-center py-5 text-gray-400 text-sm">Memuat data...</div>`;
 
     const now = new Date();
@@ -489,3 +608,4 @@ function checkToggles() {
         });
     }
 }
+
