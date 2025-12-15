@@ -1,16 +1,15 @@
 // File: app.js
 
 // ==========================================
-// 1. GLOBAL VARS & INIT
+// 1. GLOBAL VARS
 // ==========================================
 let adminPassword = null; 
 let adminEmail = null;
 let currentCategory = 'daily'; 
-// Default Settings (Aman jika server down)
 let globalSettings = { show_uts: false, show_uas: false }; 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Cek Login
+    // 1. Login Check
     const savedEmail = localStorage.getItem('admin_email');
     const savedPass = localStorage.getItem('admin_password');
     if (savedEmail && savedPass) {
@@ -30,12 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
         initDashboardFeatures();
     }
 
-    // 4. LOAD SETTINGS BACKGROUND (Agar tidak nge-block tampilan jadwal)
+    // 4. LOAD SETTINGS BACKGROUND
     fetchSettings().then(() => {
-        // Refresh UI setelah settings didapat
         if(window.updateDashboardMenu) updateDashboardMenu();
         if(window.initAdminToggles) initAdminToggles();
-        // Reload jadwal index agar filter UTS/UAS terupdate
+        // Reload jadwal index agar filter UTS/UAS terupdate (tanpa crash)
         if(document.getElementById('main-dashboard')) loadTodaySchedule();
     });
 });
@@ -81,11 +79,10 @@ function initDashboardFeatures() {
     updateDashboardMenu(); 
     loadTodaySchedule(); 
     
-    // Auto Refresh Settings tiap 5 detik
     setInterval(() => {
         fetchSettings().then(() => {
             updateDashboardMenu();
-            loadTodaySchedule();
+            // loadTodaySchedule(); // Opsional: disable auto reload jadwal berat jika perlu
         });
     }, 5000);
 }
@@ -111,61 +108,66 @@ function updateDashboardMenu() {
     }
 }
 
-// --- FUNGSI LOAD SCHEDULE DATA (LOGIKA ASLI DIKEMBALIKAN) ---
+// --- SAFE FETCH HELPER (FIX CRASH) ---
+async function safeFetch(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return []; // Jika 404/500, return array kosong
+        const data = await res.json();
+        return Array.isArray(data) ? data : []; // Pastikan Array
+    } catch (e) {
+        console.error("Fetch Error:", url, e);
+        return [];
+    }
+}
+
+// --- FUNGSI LOAD SCHEDULE DATA ---
 window.loadScheduleData = async function(category) {
     const tableBody = document.getElementById('schedule-table-body');
     const titleElement = document.getElementById('page-category-badge');
     
-    // Loading State
     if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
-    try {
-        const res = await fetch(`/api/schedule?category=${category}`);
-        if(!res.ok) throw new Error("Gagal Fetch API");
-        const data = await res.json();
-        
-        if(!tableBody) return;
-        tableBody.innerHTML = '';
+    // GUNAKAN SAFE FETCH
+    const data = await safeFetch(`/api/schedule?category=${category}`);
+    
+    if(!tableBody) return;
+    tableBody.innerHTML = '';
 
-        if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Data Kosong</td></tr>`;
-            return;
-        }
-
-        // Sorting
-        if (category === 'daily') {
-            const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
-            data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
-        } else {
-            data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
-        }
-
-        data.forEach(item => {
-            const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
-            const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
-            const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
-
-            tableBody.innerHTML += `
-            <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm">
-                <td class="p-4 align-top w-24">
-                    <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
-                    <div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div>
-                </td>
-                <td class="p-4 align-top">
-                    <div class="font-bold text-gray-800 text-sm">${title}</div>
-                    <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div>
-                </td>
-                <td class="p-4 align-top text-right">
-                    <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
-                </td>
-            </tr>`;
-        });
-
-    } catch (error) {
-        console.error("LoadSchedule Error:", error);
-        if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500 text-xs">Gagal koneksi server</td></tr>';
+    if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs">Data Kosong / Gagal Load</td></tr>`;
+        return;
     }
+
+    // Sorting
+    if (category === 'daily') {
+        const hariOrder = { 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7 };
+        data.sort((a, b) => (hariOrder[a.hari] || 99) - (hariOrder[b.hari] || 99) || (a.waktu || "").localeCompare(b.waktu || ""));
+    } else {
+        data.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal) || (a.waktu || "").localeCompare(b.waktu || ""));
+    }
+
+    data.forEach(item => {
+        const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
+        const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
+        const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+
+        tableBody.innerHTML += `
+        <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm">
+            <td class="p-4 align-top w-24">
+                <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
+                <div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div>
+            </td>
+            <td class="p-4 align-top">
+                <div class="font-bold text-gray-800 text-sm">${title}</div>
+                <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div>
+            </td>
+            <td class="p-4 align-top text-right">
+                <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
+            </td>
+        </tr>`;
+    });
 }
 
 // --- LOAD JADWAL HARI INI (TIMELINE) ---
@@ -173,7 +175,6 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
 
-    // Tanggal Lokal
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -182,53 +183,42 @@ async function loadTodaySchedule() {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const hariIni = days[now.getDay()];
 
-    // container.innerHTML = `<div class="text-center py-5 text-gray-400 text-xs">Syncing...</div>`;
+    // GUNAKAN SAFE FETCH AGAR TIDAK CRASH
+    const [daily, uts, uas, personal] = await Promise.all([
+        safeFetch('/api/schedule?category=daily'),
+        safeFetch('/api/schedule?category=uts'),
+        safeFetch('/api/schedule?category=uas'),
+        safeFetch('/api/schedule?category=personal')
+    ]);
 
-    try {
-        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([
-            fetch('/api/schedule?category=daily'),
-            fetch('/api/schedule?category=uts'),
-            fetch('/api/schedule?category=uas'),
-            fetch('/api/schedule?category=personal')
-        ]);
+    // Debugging (Opsional)
+    // console.log("Data Loaded:", {daily, uts, uas, personal});
 
-        const daily = resDaily.ok ? await resDaily.json() : [];
-        const uts = resUts.ok ? await resUts.json() : [];
-        const uas = resUas.ok ? await resUas.json() : [];
-        const personal = resPersonal.ok ? await resPersonal.json() : [];
+    const isToday = (item) => {
+        if (item.tanggal && item.tanggal === tglIni) return true;
+        if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
+        return false;
+    };
 
-        // Logic Filter Hari Ini
-        const isToday = (item) => {
-            if (item.tanggal && item.tanggal === tglIni) return true;
-            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true;
-            return false;
-        };
+    const list = [
+        ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
+        ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
+        ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
+        ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
+    ];
 
-        // GABUNGKAN (Pakai Global Settings)
-        const combinedToday = [
-            ...uts.filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})),
-            ...uas.filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})),
-            ...daily.filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})),
-            ...personal.filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
-        ];
+    list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+    calculateSimpleBusyness(list);
 
-        combinedToday.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-        calculateSimpleBusyness(combinedToday); // Update Bar Index
-
-        if (combinedToday.length === 0) {
-            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
-            return;
-        }
-
-        container.innerHTML = combinedToday.map(item => {
-             if(window.rowWidget) return window.rowWidget(item, item.c);
-             return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
-        }).join('');
-
-    } catch (e) {
-        console.error("Dashboard Load Error:", e);
-        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>';
+    if (list.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`;
+        return;
     }
+
+    container.innerHTML = list.map(item => {
+         if(window.rowWidget) return window.rowWidget(item, item.c);
+         return `<div class="p-3 bg-white mb-2 rounded shadow-sm text-xs border-l-4 border-blue-500">${item.matkul}</div>`;
+    }).join('');
 }
 
 function calculateSimpleBusyness(items) {
@@ -313,24 +303,27 @@ async function loadAdminData(category) {
     if(!container) return;
     container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Loading...</div>';
     if (!adminPassword) return;
-    try {
-        const res = await fetch(`/api/schedule?category=${category}`);
-        const data = await res.json();
-        container.innerHTML = ''; 
-        if (!data || data.length === 0) { container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; return; }
-        
-        data.forEach(item => {
-            const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
-            container.innerHTML += `
-                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
-                    <div class="overflow-hidden w-full pr-2">
-                        <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
-                        <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
-                    </div>
-                    <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
-                </div>`;
-        });
-    } catch(e) { container.innerHTML = '<div class="text-[10px] text-red-400 text-center">Error</div>'; }
+    
+    // GUNAKAN SAFE FETCH
+    const data = await safeFetch(`/api/schedule?category=${category}`);
+    container.innerHTML = ''; 
+    
+    if (data.length === 0) { 
+        container.innerHTML = '<div class="text-[10px] text-gray-400 text-center">Data Kosong</div>'; 
+        return; 
+    }
+    
+    data.forEach(item => {
+        const title = item.matkul || item.nama_kegiatan || item.nama || "Item";
+        container.innerHTML += `
+            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-between items-center group hover:bg-white hover:shadow-sm transition">
+                <div class="overflow-hidden w-full pr-2">
+                    <div class="font-bold text-[11px] text-gray-700 truncate">${title}</div>
+                    <div class="text-[9px] text-gray-400">${item.hari || item.tanggal} • <span class="text-indigo-500">${item.waktu}</span></div>
+                </div>
+                <button onclick="deleteSchedule('${item.id}', '${category}')" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
+            </div>`;
+    });
 }
 
 const addForm = document.getElementById('add-schedule-form');
@@ -375,7 +368,7 @@ window.deleteSchedule = async function(id, category) {
     } catch(e) { alert("Error koneksi."); }
 }
 
-// --- HEALTH TRACKER (SAMA SEPERTI SEBELUMNYA) ---
+// --- HEALTH TRACKER ---
 function initHealthTracker() {
     calculateBMI();
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
@@ -466,21 +459,27 @@ async function loadDailyChecklist() {
     if (!container) return;
     const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const tglIni = `${year}-${month}-${day}`; 
     if(dateDisplay) dateDisplay.innerText = `${day}/${month}`;
-    container.innerHTML = '<p class="text-center text-xs text-gray-400">Loading...</p>';
-    try {
-        const [resDaily, resUts, resUas, resPersonal] = await Promise.all([fetch('/api/schedule?category=daily'), fetch('/api/schedule?category=uts'), fetch('/api/schedule?category=uas'), fetch('/api/schedule?category=personal')]);
-        const daily = resDaily.ok ? await resDaily.json() : []; const uts = resUts.ok ? await resUts.json() : []; const uas = resUas.ok ? await resUas.json() : []; const personal = resPersonal.ok ? await resPersonal.json() : [];
-        const isToday = (item) => { if (item.tanggal && item.tanggal === tglIni) return true; if (!item.tanggal && (item.hari || "").toLowerCase() === ['minggu','senin','selasa','rabu','kamis','jumat','sabtu'][now.getDay()] ) return true; return false; };
-        const list = [...uts.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'orange'})), ...uas.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'purple'})), ...daily.filter(isToday).map(i=>({...i, c:'blue'})), ...personal.filter(isToday).map(i=>({...i, c:'green'}))];
-        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
-        if (list.length === 0) { container.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Kosong</div>`; return; }
-        container.innerHTML = "";
-        list.forEach((item, index) => {
-            const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
-            container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${item.matkul || item.nama_kegiatan}</span></div>`;
-        });
-        updateEnergyFromFood();
-    } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Error</p>'; }
+    // container.innerHTML = '<p class="text-center text-xs text-gray-400">Loading...</p>';
+    
+    // GUNAKAN SAFE FETCH
+    const [daily, uts, uas, personal] = await Promise.all([
+        safeFetch('/api/schedule?category=daily'),
+        safeFetch('/api/schedule?category=uts'),
+        safeFetch('/api/schedule?category=uas'),
+        safeFetch('/api/schedule?category=personal')
+    ]);
+
+    const isToday = (item) => { if (item.tanggal && item.tanggal === tglIni) return true; if (!item.tanggal && (item.hari || "").toLowerCase() === ['minggu','senin','selasa','rabu','kamis','jumat','sabtu'][now.getDay()] ) return true; return false; };
+    const list = [...uts.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'orange'})), ...uas.filter(u=>u.tanggal===tglIni).map(i=>({...i, c:'purple'})), ...daily.filter(isToday).map(i=>({...i, c:'blue'})), ...personal.filter(isToday).map(i=>({...i, c:'green'}))];
+    list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || ""));
+    if (list.length === 0) { container.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Kosong</div>`; return; }
+    container.innerHTML = "";
+    list.forEach((item, index) => {
+        const checkId = `check_${tglIni}_${item.id || index}`; const isChecked = localStorage.getItem(checkId) === 'true' ? 'checked' : '';
+        const title = item.matkul || item.nama_kegiatan || "Kegiatan";
+        container.innerHTML += `<div class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition"><input type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600 check-anim" ${isChecked} onchange="toggleCheck('${checkId}', this)"><span class="text-xs font-bold text-gray-700 truncate">${title}</span></div>`;
+    });
+    updateEnergyFromFood();
 }
 window.toggleCheck = function(id, el) { localStorage.setItem(id, el.checked); updateEnergyFromFood(); }
 const loginBtn = document.getElementById('btn-login');
