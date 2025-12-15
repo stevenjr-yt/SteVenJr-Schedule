@@ -279,26 +279,72 @@ async function loadTodaySchedule() {
         return;
     }
 
-    const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); const tglIni = `${year}-${month}-${day}`; const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']; const hariIni = days[now.getDay()];
+    const now = new Date(); 
+    const year = now.getFullYear(); 
+    const month = String(now.getMonth() + 1).padStart(2, '0'); 
+    const day = String(now.getDate()).padStart(2, '0'); 
+    const tglIni = `${year}-${month}-${day}`; 
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']; 
+    const hariIni = days[now.getDay()];
+
     try {
         const [daily, uts, uas, personal] = await Promise.all([
-            fetchSchedule('?category=daily'), fetchSchedule('?category=uts'), fetchSchedule('?category=uas'), fetchSchedule('?category=personal')
+            fetchSchedule('?category=daily'), 
+            fetchSchedule('?category=uts'), 
+            fetchSchedule('?category=uas'), 
+            fetchSchedule('?category=personal')
         ]);
         
         const safeList = (arr) => Array.isArray(arr) ? arr : [];
-        const isToday = (item) => { if (item.tanggal && item.tanggal === tglIni) return true; if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true; return false; };
+        const isToday = (item) => { 
+            if (item.tanggal && item.tanggal === tglIni) return true; 
+            if (!item.tanggal && (item.hari || "").toLowerCase() === hariIni.toLowerCase()) return true; 
+            return false; 
+        };
         
-        const list = [
+        let list = [
             ...safeList(uts).filter(u => u.tanggal === tglIni && globalSettings.show_uts).map(i => ({...i, c: 'orange', label:'UTS'})), 
             ...safeList(uas).filter(u => u.tanggal === tglIni && globalSettings.show_uas).map(i => ({...i, c: 'purple', label:'UAS'})), 
             ...safeList(daily).filter(isToday).map(i => ({...i, c: 'blue', label:'KULIAH'})), 
             ...safeList(personal).filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
         ];
-        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || "")); calculateSimpleBusyness(list);
 
-        if (list.length === 0) { container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`; return; }
-        container.innerHTML = list.map(item => { if(window.rowWidget) return window.rowWidget(item, item.c); return `<div>${item.matkul}</div>`; }).join('');
-    } catch (e) { container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>'; }
+        // Sortir Waktu
+        list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || "")); 
+
+        // === LOGIKA CEK BENTROK ===
+        for (let i = 0; i < list.length; i++) {
+            for (let j = i + 1; j < list.length; j++) {
+                const itemA = list[i];
+                const itemB = list[j];
+                // Pastikan format jam valid (ada '-')
+                if (itemA.waktu && itemA.waktu.includes('-') && itemB.waktu && itemB.waktu.includes('-')) {
+                    // Pakai fungsi isTimeConflict yang sudah ada di app.js
+                    if (isTimeConflict(itemA.waktu, itemB.waktu)) {
+                        itemA.isConflict = true; 
+                        itemB.isConflict = true; 
+                    }
+                }
+            }
+        }
+        // ==========================
+
+        calculateSimpleBusyness(list);
+
+        if (list.length === 0) { 
+            container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`; 
+            return; 
+        }
+
+        container.innerHTML = list.map(item => { 
+            if(window.rowWidget) return window.rowWidget(item, item.c); 
+            return `<div>${item.matkul}</div>`; 
+        }).join('');
+
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>'; 
+    }
 }
 
 function calculateSimpleBusyness(items) {
@@ -508,6 +554,7 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
 
 
