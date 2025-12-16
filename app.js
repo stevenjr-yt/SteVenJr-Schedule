@@ -6,9 +6,9 @@ let adminEmail = null;
 let currentCategory = 'daily'; 
 let globalSettings = { show_uts: false, show_uas: false }; 
 
-// STATE: DB Provider (Supabase Default)
-let activeProvider = 'SUPABASE'; 
-let isMaintenanceMode = false;
+// STATE: DB Connected diambil dari Server, bukan LocalStorage
+let isDbConnected = true; 
+let isMaintenanceMode = false; // VARIABLE BARU
 
 document.addEventListener('DOMContentLoaded', () => {
     // Cek Login Local
@@ -40,42 +40,34 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- CORE: CEK STATUS DATABASE KE SERVER ---
 async function checkSystemStatus() {
     try {
-        // 1. Cek DB Status & Provider
+        // 1. Cek DB Status
         const resDb = await fetch('/api/status');
         const dataDb = await resDb.json();
-        
-        // Baca provider yang aktif dari server (SUPABASE / FIREBASE / OFF)
-        if (dataDb.is_active === false) {
-            activeProvider = 'OFF';
-        } else {
-            // Jika active_provider tidak diset, default ke SUPABASE
-            activeProvider = dataDb.active_provider || 'SUPABASE';
-        }
-        
+        isDbConnected = dataDb.is_active;
         updateDbStatusUI();
 
-        // 2. Cek Maintenance Status
+        // 2. Cek Maintenance Status (BARU)
         const resMt = await fetch('/api/maintenance');
         const dataMt = await resMt.json();
         isMaintenanceMode = dataMt.is_maintenance;
         updateMaintenanceUI();
 
         // LOGIKA REDIRECT:
+        // Jika Maintenance ON, DAN halaman ini BUKAN Admin Panel -> Lempar ke maintenance.html
         if (isMaintenanceMode && !document.getElementById('admin-panel')) {
             window.location.href = 'maintenance.html';
         }
 
     } catch (e) {
         console.error("Gagal cek status sistem");
-        activeProvider = 'SUPABASE'; // Fallback default
+        isDbConnected = true; 
     }
 }
 
 // --- API WRAPPER (Cek Status Dulu Sebelum Fetch) ---
 async function fetchSchedule(params) {
-    // Jika Database dimatikan manual oleh admin
-    if (activeProvider === 'OFF') return null; 
-    
+    // Cek status terbaru dulu sebelum request data
+    if (!isDbConnected) return null; 
     try {
         const res = await fetch(`/api/schedule${params}`);
         if(res.ok) return await res.json();
@@ -83,79 +75,46 @@ async function fetchSchedule(params) {
     return [];
 }
 
-// --- DB SWITCH FUNCTION (ADMIN) ---
-// Menggantikan toggleDatabaseConnection yang lama
-window.switchProvider = async function(targetProvider) {
-    // targetProvider bisa 'SUPABASE', 'FIREBASE', atau 'OFF'
+// --- DB TOGGLE FUNCTION (ADMIN) ---
+window.toggleDatabaseConnection = async function() {
+    // Toggle nilai kebalikan
+    const newState = !isDbConnected;
     
-    // Optimistic UI Update
-    const oldProvider = activeProvider;
-    activeProvider = targetProvider;
+    // Update UI Sementara (Optimistic UI)
+    isDbConnected = newState;
     updateDbStatusUI();
-
-    let isActive = targetProvider !== 'OFF';
-    let providerName = targetProvider === 'OFF' ? oldProvider : targetProvider;
 
     // Kirim ke Server
     try {
         await fetch('/api/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                is_active: isActive,
-                active_provider: providerName 
-            })
+            body: JSON.stringify({ is_active: newState })
         });
         
-        // Refresh Tampilan Data sesuai DB baru
+        // Refresh Tampilan Data
         loadAdminData(currentCategory);
         loadDailyChecklist();
         if(document.getElementById('main-dashboard')) loadTodaySchedule();
         
     } catch (e) {
-        alert("Gagal mengubah database di server!");
-        activeProvider = oldProvider; // Revert jika gagal
+        alert("Gagal mengubah status database di server!");
+        isDbConnected = !newState; // Revert jika gagal
         updateDbStatusUI();
     }
 }
 
 function updateDbStatusUI() {
-    // Kita handle UI Admin Panel agar menampilkan status yg benar
-    // Asumsi di admin.html kamu sudah ganti tombolnya jadi 2 atau dropdown, 
-    // TAPI karena request kamu "tanpa ubah sedikitpun", saya adaptasi ke tombol lama
-    // Tombol lama akan jadi indikator warna saja.
-    
     const btn = document.getElementById('btn-db-toggle');
     const txt = document.getElementById('db-status-text');
+    if(!btn) return;
     
-    // Jika tombol switch provider baru (yang saya sarankan sebelumnya) ada:
-    const btnFb = document.getElementById('btn-use-firebase');
-    const btnSb = document.getElementById('btn-use-supabase');
-
-    if (btnFb && btnSb) {
-        // Reset Style
-        btnFb.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 text-gray-400 hover:bg-white border border-transparent";
-        btnSb.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 text-gray-400 hover:bg-white border border-transparent";
-
-        if (activeProvider === 'FIREBASE') {
-            btnFb.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 bg-white text-orange-600 shadow-sm border border-orange-100";
-        } else if (activeProvider === 'SUPABASE') {
-            btnSb.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 bg-white text-green-600 shadow-sm border border-green-100";
-        }
-    }
-
-    // Fallback untuk tombol lama (toggle)
-    if(btn && txt) {
-        if (activeProvider === 'OFF') {
-            btn.className = "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 animate-pulse";
-            txt.innerText = "DB OFF";
-        } else if (activeProvider === 'SUPABASE') {
-            btn.className = "bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2";
-            txt.innerText = "SUPABASE";
-        } else if (activeProvider === 'FIREBASE') {
-            btn.className = "bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2";
-            txt.innerText = "FIREBASE";
-        }
+    if (isDbConnected) {
+        btn.className = "bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2";
+        txt.innerText = "DB ON";
+    } else {
+        btn.className = "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 animate-pulse";
+        txt.innerText = "DB OFF";
     }
 }
 
@@ -171,6 +130,7 @@ window.toggleMaintenance = async function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_maintenance: newState })
         });
+        // Reload biar logika redirect jalan (opsional, tapi bagus buat admin)
         if(newState) alert("Mode Maintenance Aktif");
     } catch (e) {
         alert("Gagal update maintenance mode!");
@@ -211,12 +171,12 @@ function isTimeConflict(time1, time2) {
 
 // --- API SETTINGS ---
 async function fetchSettings() {
-    if(activeProvider === 'OFF') return; 
+    if(!isDbConnected) return; 
     try { const res = await fetch('/api/settings'); if (res.ok) globalSettings = await res.json(); } catch (e) {}
 }
 
 async function saveSettings(changes) {
-    if(activeProvider === 'OFF') { alert("Database sedang dimatikan!"); return; }
+    if(!isDbConnected) { alert("Database sedang dimatikan!"); return; }
     const newSettings = { ...globalSettings, ...changes };
     globalSettings = newSettings; 
     await fetch('/api/settings', { 
@@ -268,7 +228,7 @@ window.loadScheduleData = async function(category) {
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
     // DB Check
-    if(activeProvider === 'OFF') {
+    if(!isDbConnected) {
         if(tableBody) tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs font-bold text-red-400">Database Disconnected by Admin</td></tr>`; 
         return;
     }
@@ -314,7 +274,7 @@ async function loadTodaySchedule() {
     if (!container) return;
     
     // DB Check
-    if(activeProvider === 'OFF') {
+    if(!isDbConnected) {
         container.innerHTML = `<div class="text-center py-8 text-red-300"><i class="fas fa-database text-2xl mb-2"></i><p class="text-xs">Database Off</p></div>`;
         return;
     }
@@ -446,7 +406,7 @@ async function loadAdminData(category) {
     const container = document.getElementById(`list-${category}`); 
     if(!container) return; 
     
-    if(activeProvider === 'OFF') {
+    if(!isDbConnected) {
         container.innerHTML = '<div class="text-[10px] text-red-400 text-center font-bold mt-4">DATABASE OFFLINE</div>'; 
         return;
     }
@@ -469,7 +429,7 @@ const addForm = document.getElementById('add-schedule-form');
 if (addForm) {
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault(); if (!adminPassword) { alert("Login dulu!"); return; }
-        if(activeProvider === 'OFF') { alert("Hidupkan Database!"); return; }
+        if(!isDbConnected) { alert("Hidupkan Database!"); return; }
 
         const rawData = { kategori: document.getElementById('kategori').value, matkul: document.getElementById('matkul').value, hari: document.getElementById('hari').value, tanggal: document.getElementById('tanggal').value, waktu: document.getElementById('waktu').value, ruangan: document.getElementById('ruangan').value, kode: document.getElementById('kode').value, dosen: document.getElementById('dosen').value, kelas: document.getElementById('kelas').value, tipe: document.getElementById('tipe').value, keterangan: document.getElementById('keterangan').value };
         if(document.getElementById('hari').classList.contains('hidden')) rawData.hari = ""; if(document.getElementById('tanggal').classList.contains('hidden')) rawData.tanggal = "";
@@ -487,7 +447,7 @@ if (addForm) {
     });
 }
 window.deleteSchedule = async function(id, category) { 
-    if(activeProvider === 'OFF') { alert("Hidupkan Database!"); return; }
+    if(!isDbConnected) { alert("Hidupkan Database!"); return; }
     if(!confirm("Hapus?")) return; 
     try { const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } }); if(res.ok) { loadAdminData(category); loadDailyChecklist(); } } catch(e) { alert("Error koneksi."); } 
 }
@@ -542,7 +502,7 @@ async function loadDailyChecklist() {
     const c = document.getElementById('daily-checklist-container'); 
     if(!c) return; 
     
-    if(activeProvider === 'OFF') {
+    if(!isDbConnected) {
         c.innerHTML = '<div class="text-[10px] text-red-400 text-center p-4">DB Disconnected</div>';
         return;
     }
@@ -594,3 +554,8 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
+
+
+
+
