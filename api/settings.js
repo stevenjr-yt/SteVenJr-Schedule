@@ -20,6 +20,10 @@ export default async function handler(req, res) {
 
   // GET Settings
   if (method === 'GET') {
+    // --- PENAMBAHAN CACHE CONTROL ---
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+    // --------------------------------
+
     try {
       const doc = await db.collection('config').doc('display_mode').get();
       if (!doc.exists) return res.status(200).json({ show_uts: false, show_uas: false });
