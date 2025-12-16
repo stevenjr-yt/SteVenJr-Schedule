@@ -204,7 +204,7 @@ function initDashboardFeatures() {
         checkSystemStatus().then(() => {
             fetchSettings().then(() => { updateDashboardMenu(); loadTodaySchedule(); });
         });
-    }, 50000); 
+    }, 60000); 
 }
 
 function updateDashboardMenu() {
@@ -554,6 +554,7 @@ function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
 
 
