@@ -21,6 +21,12 @@ export default async function handler(req, res) {
 
   // GET: Ambil Data Jadwal
   if (method === 'GET') {
+    // --- PENAMBAHAN CACHE CONTROL ---
+    // Vercel akan menyimpan respons ini selama 60 detik.
+    // Jika ada request lagi dalam 60 detik, Firebase TIDAK akan dibaca.
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+    // --------------------------------
+
     try {
       if (!category) return res.status(400).json({ error: 'Butuh kategori' });
       
@@ -37,7 +43,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST: Tambah Jadwal
+  // POST: Tambah Jadwal (JANGAN DI-CACHE)
   if (method === 'POST') {
     try {
       const authHeader = req.headers['x-admin-password'];
@@ -56,7 +62,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // DELETE: Hapus Jadwal
+  // DELETE: Hapus Jadwal (JANGAN DI-CACHE)
   if (method === 'DELETE') {
     try {
       const authHeader = req.headers['x-admin-password'];
