@@ -1,144 +1,127 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" type="image/png" href="favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Status - SteVenJr OS</title>
+    <title>Server Stats - SteVenJr</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         body { font-family: 'JetBrains Mono', monospace; background-color: #0f172a; color: #e2e8f0; }
-        .status-card { background: #1e293b; border: 1px solid #334155; }
         .blink { animation: blinker 1.5s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        @keyframes blinker { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <div class="max-w-lg w-full space-y-6">
+    <div class="max-w-2xl w-full space-y-6">
+        
         <div class="text-center space-y-2">
-            <h1 class="text-2xl font-bold text-indigo-400">SteVenJr OS <span class="text-xs border border-indigo-500 px-2 py-0.5 rounded text-indigo-400">DIAGNOSTICS</span></h1>
-            <p class="text-xs text-slate-500">Realtime Network & Backend Monitoring</p>
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">SYSTEM STATUS</h1>
+            <p class="text-xs text-slate-500">Live Monitoring Dashboard</p>
         </div>
 
-        <div id="db-warning-banner" class="hidden bg-yellow-500/10 border border-yellow-500 text-yellow-500 p-4 rounded-xl text-center">
-            <i class="fas fa-exclamation-triangle mb-2 text-2xl"></i>
-            <h2 class="font-bold text-sm">DATABASE NONAKTIF</h2>
-            <p class="text-[10px] mt-1">Koneksi data diputus secara manual oleh Admin.</p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
-                <div class="flex items-center gap-4">
-                    <div id="icon-net" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-globe"></i></div>
-                    <div><h3 class="text-sm font-bold">Internet Connection</h3><p id="desc-net" class="text-xs text-slate-500">Checking latency...</p></div>
+            <div id="card-sb" class="bg-slate-800 border border-slate-700 rounded-xl p-6 relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><i class="fas fa-bolt text-6xl text-emerald-500"></i></div>
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fas fa-database text-emerald-400 text-xl"></i>
+                    <h2 class="font-bold text-lg">SUPABASE (Main)</h2>
                 </div>
-                <div id="status-net" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-400">Status</span>
+                        <span id="sb-status" class="text-xs font-bold px-2 py-1 rounded bg-slate-700 text-slate-300">CHECKING...</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-400">Latency</span>
+                        <span id="sb-ping" class="text-xs font-mono text-emerald-400">-- ms</span>
+                    </div>
+                </div>
             </div>
 
-            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
-                <div class="flex items-center gap-4">
-                    <div id="icon-server" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-server"></i></div>
-                    <div><h3 class="text-sm font-bold">Vercel Backend</h3><p id="desc-server" class="text-xs text-slate-500">Checking system status...</p></div>
+            <div id="card-fb" class="bg-slate-800 border border-slate-700 rounded-xl p-6 relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><i class="fas fa-fire text-6xl text-orange-500"></i></div>
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fas fa-server text-orange-400 text-xl"></i>
+                    <h2 class="font-bold text-lg">FIREBASE (Backup)</h2>
                 </div>
-                <div id="status-server" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
-            </div>
-
-            <div class="status-card p-4 rounded-xl flex items-center justify-between shadow-lg">
-                <div class="flex items-center gap-4">
-                    <div id="icon-db" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 transition-colors"><i class="fas fa-fire"></i></div>
-                    <div><h3 class="text-sm font-bold">Firebase SDK</h3><p id="desc-db" class="text-xs text-slate-500">Verifying initialization...</p></div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-400">Status</span>
+                        <span id="fb-status" class="text-xs font-bold px-2 py-1 rounded bg-slate-700 text-slate-300">CHECKING...</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-400">Latency</span>
+                        <span id="fb-ping" class="text-xs font-mono text-orange-400">-- ms</span>
+                    </div>
                 </div>
-                <div id="status-db" class="text-xs font-bold px-3 py-1 rounded bg-slate-700 text-slate-400">WAITING</div>
             </div>
-
         </div>
 
-        <div class="text-center pt-8 border-t border-slate-800">
-            <p class="text-[10px] text-slate-600">CLIENT IP: <span id="client-ip" class="text-slate-400">Detecting...</span></p>
-            <p class="text-[10px] text-slate-600 mt-1">LAST CHECK: <span id="last-check" class="text-slate-400">--:--:--</span></p>
-            <a href="admin.html" class="inline-block mt-4 text-xs text-indigo-500 hover:text-indigo-400 font-bold underline">Back to Admin Panel</a>
+        <div class="text-center">
+            <button onclick="checkHealth()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-xs font-bold transition shadow-lg shadow-indigo-500/20">
+                <i class="fas fa-sync-alt mr-2"></i> REFRESH STATUS
+            </button>
+            <div class="mt-4">
+                <a href="index.html" class="text-[10px] text-slate-500 hover:text-white underline">Kembali ke Dashboard</a>
+            </div>
         </div>
+
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script>
-        function setStatus(id, isOnline, message, isWarning = false) {
-            const elStatus = document.getElementById(`status-${id}`);
-            const elIcon = document.getElementById(`icon-${id}`);
-            const elDesc = document.getElementById(`desc-${id}`);
+        async function checkHealth() {
+            // UI Loading State
+            document.getElementById('sb-status').innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+            document.getElementById('fb-status').innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
             
-            if (isWarning) {
-                elStatus.className = "text-xs font-bold px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
-                elStatus.innerText = "DISABLED";
-                elIcon.className = "w-10 h-10 rounded-full bg-yellow-900/30 flex items-center justify-center text-yellow-400";
-                elDesc.innerText = message;
-                return;
-            }
-
-            if (isOnline) {
-                elStatus.className = "text-xs font-bold px-3 py-1 rounded bg-green-500/20 text-green-400 border border-green-500/30";
-                elStatus.innerText = "ONLINE";
-                elIcon.className = "w-10 h-10 rounded-full bg-green-900/30 flex items-center justify-center text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.2)]";
-                elDesc.innerText = message || "Connected secure.";
-            } else {
-                elStatus.className = "text-xs font-bold px-3 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30 blink";
-                elStatus.innerText = "OFFLINE";
-                elIcon.className = "w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center text-red-400";
-                elDesc.innerText = message || "Connection failed.";
-            }
-        }
-
-        function checkInternet() {
-            const isOnline = navigator.onLine;
-            setStatus('net', isOnline, isOnline ? "Throughput normal." : "No internet access.");
-            if(isOnline) fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => document.getElementById('client-ip').innerText = d.ip).catch(() => document.getElementById('client-ip').innerText = "Hidden/Proxy");
-        }
-
-        async function checkServer() {
             try {
-                // 1. Cek Status Database GLOBAL dari Server
-                const statusRes = await fetch('/api/status', { cache: "no-store" });
-                const statusData = await statusRes.json();
-                
-                if (statusData.is_active === false) {
-                    document.getElementById('db-warning-banner').classList.remove('hidden');
-                    setStatus('server', false, "Connection Blocked by Admin", true); // Status Kuning
-                    setStatus('db', false, "Connection Blocked by Admin", true); // Status Kuning
-                    return; // Stop checking
+                // Panggil API Health yang baru kita buat
+                const res = await fetch('/api/health');
+                const data = await res.json();
+
+                // Update SUPABASE UI
+                const sbBadge = document.getElementById('sb-status');
+                if (data.supabase.status === 'ONLINE') {
+                    sbBadge.className = "text-xs font-bold px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    sbBadge.innerText = "ONLINE";
+                    document.getElementById('sb-ping').innerText = data.supabase.ping + " ms";
+                    document.getElementById('card-sb').className = "bg-slate-800 border border-emerald-500/50 rounded-xl p-6 relative overflow-hidden group shadow-[0_0_20px_rgba(16,185,129,0.1)]";
                 } else {
-                    document.getElementById('db-warning-banner').classList.add('hidden');
+                    sbBadge.className = "text-xs font-bold px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30";
+                    sbBadge.innerText = "OFFLINE";
+                    document.getElementById('card-sb').className = "bg-slate-900 border border-red-900 rounded-xl p-6 relative overflow-hidden opacity-75";
                 }
 
-                // 2. Jika Active, Cek Latency Vercel
-                const start = Date.now();
-                const res = await fetch('/api/settings', { cache: "no-store" });
-                const end = Date.now();
-                if (res.ok) setStatus('server', true, `Latency: ${end - start}ms (Vercel Edge)`);
-                else setStatus('server', false, `Error: ${res.status}`);
-                
-                // 3. Cek Firebase SDK
-                if (typeof firebase !== 'undefined') setStatus('db', true, "SDK Loaded & Ready.");
-                else setStatus('db', false, "Firebase SDK not found.");
+                // Update FIREBASE UI
+                const fbBadge = document.getElementById('fb-status');
+                if (data.firebase.status === 'ONLINE') {
+                    fbBadge.className = "text-xs font-bold px-2 py-1 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30";
+                    fbBadge.innerText = "ONLINE";
+                    document.getElementById('fb-ping').innerText = data.firebase.ping + " ms";
+                    document.getElementById('card-fb').className = "bg-slate-800 border border-orange-500/50 rounded-xl p-6 relative overflow-hidden group shadow-[0_0_20px_rgba(249,115,22,0.1)]";
+                } else {
+                    fbBadge.className = "text-xs font-bold px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30";
+                    fbBadge.innerText = "OFFLINE";
+                    document.getElementById('card-fb').className = "bg-slate-900 border border-red-900 rounded-xl p-6 relative overflow-hidden opacity-75";
+                }
 
-            } catch (e) { 
-                setStatus('server', false, "Unreachable / Timeout"); 
+            } catch (e) {
+                console.error(e);
+                document.getElementById('sb-status').innerText = "ERROR";
+                document.getElementById('fb-status').innerText = "ERROR";
             }
         }
 
-        function runDiagnostics() {
-            const now = new Date();
-            document.getElementById('last-check').innerText = now.toLocaleTimeString();
-            checkInternet();
-            checkServer();
-        }
-
-        window.addEventListener('online', checkInternet);
-        window.addEventListener('offline', checkInternet);
-        runDiagnostics();
-        setInterval(runDiagnostics, 5000); // Auto refresh
+        // Auto Check pas load
+        checkHealth();
+        
+        // Auto refresh tiap 30 detik
+        setInterval(checkHealth, 30000);
     </script>
 </body>
 </html>
