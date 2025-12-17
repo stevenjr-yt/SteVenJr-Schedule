@@ -35,24 +35,17 @@
         </div>
         
         <div class="mt-8">
-            <button id="btn-refresh-mt" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-full text-xs font-bold transition shadow-lg shadow-indigo-500/30">
+            <button onclick="checkStatus()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-full text-xs font-bold transition shadow-lg shadow-indigo-500/30">
                 <i class="fas fa-sync-alt mr-2"></i> Coba Refresh
             </button>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnRefresh = document.getElementById('btn-refresh-mt');
-            if(btnRefresh) {
-                btnRefresh.addEventListener('click', checkStatus);
-            }
-        });
-
         async function checkStatus() {
             try {
-                const btnIcon = document.querySelector('#btn-refresh-mt i');
-                if(btnIcon) btnIcon.classList.add('fa-spin');
+                const btn = document.querySelector('button i');
+                btn.classList.add('fa-spin');
                 
                 const res = await fetch('/api/maintenance');
                 const data = await res.json();
@@ -60,7 +53,7 @@
                 if (data.is_maintenance === false) {
                     window.location.href = 'index.html'; // Balik ke Web Utama
                 } else {
-                    if(btnIcon) setTimeout(() => btnIcon.classList.remove('fa-spin'), 1000);
+                    setTimeout(() => btn.classList.remove('fa-spin'), 1000);
                 }
             } catch (e) {
                 console.error("Gagal cek status");
