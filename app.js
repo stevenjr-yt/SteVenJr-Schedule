@@ -8,7 +8,7 @@ let globalSettings = { show_uts: false, show_uas: false };
 
 // STATE: DB Connected diambil dari Server, bukan LocalStorage
 let isDbConnected = true; 
-let isMaintenanceMode = false; // VARIABLE BARU
+let isMaintenanceMode = false; 
 
 document.addEventListener('DOMContentLoaded', () => {
     // Cek Login Local
@@ -46,14 +46,13 @@ async function checkSystemStatus() {
         isDbConnected = dataDb.is_active;
         updateDbStatusUI();
 
-        // 2. Cek Maintenance Status (BARU)
+        // 2. Cek Maintenance Status
         const resMt = await fetch('/api/maintenance');
         const dataMt = await resMt.json();
         isMaintenanceMode = dataMt.is_maintenance;
         updateMaintenanceUI();
 
         // LOGIKA REDIRECT:
-        // Jika Maintenance ON, DAN halaman ini BUKAN Admin Panel -> Lempar ke maintenance.html
         if (isMaintenanceMode && !document.getElementById('admin-panel')) {
             window.location.href = 'maintenance.html';
         }
@@ -66,7 +65,6 @@ async function checkSystemStatus() {
 
 // --- API WRAPPER (Cek Status Dulu Sebelum Fetch) ---
 async function fetchSchedule(params) {
-    // Cek status terbaru dulu sebelum request data
     if (!isDbConnected) return null; 
     try {
         const res = await fetch(`/api/schedule${params}`);
@@ -77,29 +75,21 @@ async function fetchSchedule(params) {
 
 // --- DB TOGGLE FUNCTION (ADMIN) ---
 window.toggleDatabaseConnection = async function() {
-    // Toggle nilai kebalikan
     const newState = !isDbConnected;
-    
-    // Update UI Sementara (Optimistic UI)
     isDbConnected = newState;
     updateDbStatusUI();
-
-    // Kirim ke Server
     try {
         await fetch('/api/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_active: newState })
         });
-        
-        // Refresh Tampilan Data
         loadAdminData(currentCategory);
         loadDailyChecklist();
         if(document.getElementById('main-dashboard')) loadTodaySchedule();
-        
     } catch (e) {
         alert("Gagal mengubah status database di server!");
-        isDbConnected = !newState; // Revert jika gagal
+        isDbConnected = !newState;
         updateDbStatusUI();
     }
 }
@@ -122,19 +112,17 @@ function updateDbStatusUI() {
 window.toggleMaintenance = async function() {
     const newState = !isMaintenanceMode;
     isMaintenanceMode = newState;
-    updateMaintenanceUI(); // Update UI langsung biar cepat
-
+    updateMaintenanceUI(); 
     try {
         await fetch('/api/maintenance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_maintenance: newState })
         });
-        // Reload biar logika redirect jalan (opsional, tapi bagus buat admin)
         if(newState) alert("Mode Maintenance Aktif");
     } catch (e) {
         alert("Gagal update maintenance mode!");
-        isMaintenanceMode = !newState; // Balikin kalau gagal
+        isMaintenanceMode = !newState; 
         updateMaintenanceUI();
     }
 }
@@ -199,7 +187,6 @@ function updateClock() {
 // 2. DASHBOARD & MENU
 function initDashboardFeatures() { 
     updateDashboardMenu(); 
-    // Polling Status setiap 5 detik agar user lain update realtime
     setInterval(() => { 
         checkSystemStatus().then(() => {
             fetchSettings().then(() => { updateDashboardMenu(); loadTodaySchedule(); });
@@ -227,7 +214,6 @@ window.loadScheduleData = async function(category) {
     if(tableBody) tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-400 text-xs">Memuat data...</td></tr>';
     if(titleElement) titleElement.innerText = category.toUpperCase();
 
-    // DB Check
     if(!isDbConnected) {
         if(tableBody) tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-20 text-gray-400 text-xs font-bold text-red-400">Database Disconnected by Admin</td></tr>`; 
         return;
@@ -273,7 +259,6 @@ async function loadTodaySchedule() {
     const container = document.getElementById('today-schedule-container');
     if (!container) return;
     
-    // DB Check
     if(!isDbConnected) {
         container.innerHTML = `<div class="text-center py-8 text-red-300"><i class="fas fa-database text-2xl mb-2"></i><p class="text-xs">Database Off</p></div>`;
         return;
@@ -309,17 +294,13 @@ async function loadTodaySchedule() {
             ...safeList(personal).filter(isToday).map(i => ({...i, c: 'green', label:'AGENDA'}))
         ];
 
-        // Sortir Waktu
         list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || "")); 
 
-        // === LOGIKA CEK BENTROK ===
         for (let i = 0; i < list.length; i++) {
             for (let j = i + 1; j < list.length; j++) {
                 const itemA = list[i];
                 const itemB = list[j];
-                // Pastikan format jam valid (ada '-')
                 if (itemA.waktu && itemA.waktu.includes('-') && itemB.waktu && itemB.waktu.includes('-')) {
-                    // Pakai fungsi isTimeConflict yang sudah ada di app.js
                     if (isTimeConflict(itemA.waktu, itemB.waktu)) {
                         itemA.isConflict = true; 
                         itemB.isConflict = true; 
@@ -327,9 +308,6 @@ async function loadTodaySchedule() {
                 }
             }
         }
-        // ==========================
-
-        calculateSimpleBusyness(list);
 
         if (list.length === 0) { 
             container.innerHTML = `<div class="text-center py-8 text-gray-300"><i class="fas fa-mug-hot text-2xl mb-2"></i><p class="text-xs">Hari ini kosong. Santai!</p></div>`; 
@@ -342,15 +320,8 @@ async function loadTodaySchedule() {
         }).join('');
 
     } catch (e) { 
-        console.error(e);
         container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>'; 
     }
-}
-
-function calculateSimpleBusyness(items) {
-    let totalMinutes = 0; items.forEach(item => { if(item.waktu && item.waktu.includes('-')) { const [start, end] = item.waktu.split('-'); try { const [sh, sm] = start.split(/[:.]/).map(Number); const [eh, em] = end.split(/[:.]/).map(Number); totalMinutes += ((eh*60+em) - (sh*60+sm)); } catch(e) { totalMinutes += 60; } } else { totalMinutes += 60; } });
-    const bar = document.getElementById('energy-bar'); const text = document.getElementById('energy-level'); const advice = document.getElementById('busy-advice');
-    if (bar && text && !document.getElementById('admin-panel')) { let percent = Math.round((totalMinutes / 480) * 100); if(percent > 100) percent = 100; text.innerText = `${percent}%`; bar.style.width = `${percent}%`; if (percent > 80) { bar.className = "h-full bg-red-500 transition-all duration-1000"; if(advice) advice.innerText = "Sangat Sibuk!"; } else if (percent > 40) { bar.className = "h-full bg-indigo-500 transition-all duration-1000"; if(advice) advice.innerText = "Produktif."; } else { bar.className = "h-full bg-green-500 transition-all duration-1000"; if(advice) advice.innerText = "Santai."; } }
 }
 
 // 3. ADMIN PANEL
@@ -361,25 +332,23 @@ function showAdminPanel() {
 }
 
 function initAdminFeatures() { 
-    checkSystemStatus(); // Cek status awal
+    checkSystemStatus(); 
     updateDbStatusUI();
     loadAdminData('daily'); 
     loadDailyChecklist(); 
+    
+    // START: Health Tracker Baru
     initHealthTracker(); 
     initAdminToggles(); 
-    setInterval(() => { const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); if (s && !w) updateSleepDurationRealtime(new Date(parseInt(s))); }, 1000); 
 }
 
-// --- LOGIKA BEBAS (INDEPENDENT) ---
 function initAdminToggles() { 
     const tUts = document.getElementById('toggle-uts'); 
     const tUas = document.getElementById('toggle-uas'); 
 
-    // Handle Toggle UTS
     if (tUts) { 
         tUts.checked = globalSettings.show_uts; 
         tUts.addEventListener('change', (e) => { 
-            // Kirim status UTS yang baru + status UAS yang sekarang (biar UAS gak kereset)
             saveSettings({ 
                 show_uts: e.target.checked, 
                 show_uas: tUas ? tUas.checked : globalSettings.show_uas 
@@ -387,11 +356,9 @@ function initAdminToggles() {
         }); 
     } 
 
-    // Handle Toggle UAS
     if (tUas) { 
         tUas.checked = globalSettings.show_uas; 
         tUas.addEventListener('change', (e) => { 
-            // Kirim status UAS yang baru + status UTS yang sekarang (biar UTS gak kereset)
             saveSettings({ 
                 show_uas: e.target.checked, 
                 show_uts: tUts ? tUts.checked : globalSettings.show_uts 
@@ -452,32 +419,133 @@ window.deleteSchedule = async function(id, category) {
     try { const res = await fetch(`/api/schedule?id=${id}&category=${category}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } }); if(res.ok) { loadAdminData(category); loadDailyChecklist(); } } catch(e) { alert("Error koneksi."); } 
 }
 
-// 4. HEALTH TRACKER
+// ==========================================
+// 4. HEALTH TRACKER REVISI TOTAL
+// ==========================================
 function initHealthTracker() { 
+    // Load data dummy (Nanti ganti fetch API)
     document.getElementById('input-bb').value = localStorage.getItem('steven_berat') || 50;
     document.getElementById('input-tb').value = localStorage.getItem('steven_tinggi') || 180;
     calculateBMI(); 
     
+    // Load Status Makan & Minum
     document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
     document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2') === 'true';
     document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3') === 'true';
-
     const savedWater = localStorage.getItem('steven_water');
     if(savedWater) document.getElementById('water-count').innerText = savedWater;
 
-    const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); 
-    if (s && !w) updateSleepUI(true, new Date(parseInt(s))); 
-    else if (s && w) updateSleepUI(false, new Date(parseInt(s)), new Date(parseInt(w))); 
-    else updateEnergyUI(50); 
+    // Load Status Tidur
+    const s = localStorage.getItem('steven_sleep_start'); 
+    const w = localStorage.getItem('steven_wake_time'); 
+    
+    if (s && !w) {
+        // Sedang Tidur
+        updateSleepUI(true, new Date(parseInt(s))); 
+    } else if (s && w) {
+        // Sudah Bangun -> Hitung Energi Kompleks
+        updateSleepUI(false, new Date(parseInt(s)), new Date(parseInt(w))); 
+        
+        // JALANKAN INTERVAL PENGURANGAN ENERGI (DECAY) SETIAP MENIT
+        setInterval(() => {
+            calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w)));
+        }, 60000); 
+    } else {
+        updateEnergyUI(50); // Default jika belum ada data
+    }
 }
 
+// UPDATE LOGIKA ENERGI
+function calculateComplexEnergy(sDate, wDate) {
+    const now = new Date();
+    
+    // 1. HITUNG MODAL TIDUR (Target 8 Jam = 100%)
+    const sleepMs = wDate - sDate;
+    const sleepHours = sleepMs / (1000 * 60 * 60); // Konversi ke Jam
+    let energyModal = (sleepHours / 8) * 100; 
+    if(energyModal > 100) energyModal = 100;
+
+    // UPDATE UI ALERT TIDUR (Di Admin HTML)
+    const sleepAlert = document.getElementById('sleep-quality-alert');
+    if(sleepAlert) {
+        sleepAlert.classList.remove('hidden');
+        if(sleepHours < 6) {
+            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-red-100 text-red-600 border border-red-200 animate-pulse";
+            sleepAlert.innerText = `KURANG TIDUR: ${sleepHours.toFixed(1)} JAM`;
+        } else {
+            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-green-100 text-green-600 border border-green-200";
+            sleepAlert.innerText = `TIDUR CUKUP: ${sleepHours.toFixed(1)} JAM`;
+        }
+    }
+
+    // 2. HITUNG PENGURANGAN ENERGI (DECAY) BERDASARKAN WAKTU
+    // Energi berkurang 5% setiap 1 jam setelah bangun
+    const hoursAwake = (now - wDate) / (1000 * 60 * 60);
+    const timeDecay = hoursAwake * 5; 
+
+    // 3. HITUNG ASUPAN (FUEL)
+    let fuel = 0;
+    if(document.getElementById('eat-1').checked) fuel += 15; // Makan nambah 15%
+    if(document.getElementById('eat-2').checked) fuel += 15;
+    if(document.getElementById('eat-3').checked) fuel += 15;
+    
+    const waterLevel = parseInt(document.getElementById('water-count').innerText) || 0;
+    fuel += (waterLevel * 2); // Air nambah 2% per unit
+
+    // 4. HITUNG BEBAN AKTIVITAS (Checklist)
+    const tasksDone = document.querySelectorAll('.check-anim:checked').length; // Yang sudah dicentang
+    const tasksTotal = document.querySelectorAll('.check-anim').length; // Total tugas
+    const taskDrain = tasksDone * 3; // Setiap tugas mengurangi 3%
+
+    // 5. TOTAL AKHIR
+    let currentEnergy = energyModal - timeDecay + fuel - taskDrain;
+    
+    // Normalisasi (Gak boleh minus, gak boleh lebih dari 100)
+    if(currentEnergy > 100) currentEnergy = 100;
+    if(currentEnergy < 0) currentEnergy = 0;
+
+    // Update Bar UI
+    updateEnergyUI(Math.round(currentEnergy));
+    
+    // Update Forecast Produktivitas (Alert Energi)
+    updateProductivityForecast(currentEnergy, tasksTotal, tasksDone);
+}
+
+// Helper untuk Forecast
+function updateProductivityForecast(energy, totalTask, doneTask) {
+    const alertBox = document.getElementById('productivity-alert');
+    const drainText = document.getElementById('task-drain-text');
+    const forecastText = document.getElementById('energy-forecast-text');
+    
+    if(alertBox) {
+        alertBox.classList.remove('hidden');
+        // Estimasi sisa tugas
+        const remainingTasks = totalTask - doneTask;
+        const estimatedDrain = remainingTasks * 3; 
+        drainText.innerText = `-${estimatedDrain}% (Sisa ${remainingTasks} Tugas)`;
+
+        if(energy < 40) {
+            forecastText.innerHTML = "<span class='text-red-500 font-bold'>KRITIS! BUTUH MAKAN!</span>";
+            // Trigger Alert Merah di bar baterai juga
+            const batTxt = document.getElementById('energy-level');
+            if(batTxt) batTxt.classList.add('animate-bounce', 'text-red-600');
+        } else if (energy < estimatedDrain) {
+             forecastText.innerHTML = "<span class='text-orange-500 font-bold'>Tidak Cukup. Hemat Tenaga.</span>";
+        } else {
+             forecastText.innerHTML = "<span class='text-green-600 font-bold'>Cukup untuk hari ini.</span>";
+        }
+    }
+}
+
+// Trigger Makan dengan Recalculate
 window.updateEnergyFromFood = function() { 
     localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked);
     localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked);
     localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked);
     
-    const s = localStorage.getItem('steven_sleep_start'); const w = localStorage.getItem('steven_wake_time'); 
-    if(s && w) calculateTotalEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
+    const s = localStorage.getItem('steven_sleep_start'); 
+    const w = localStorage.getItem('steven_wake_time'); 
+    if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
 }
 
 window.calculateBMI = function() { 
@@ -495,6 +563,11 @@ window.updateWater = function(n) {
     let c = parseInt(document.getElementById('water-count').innerText)+n; if(c<0)c=0; 
     document.getElementById('water-count').innerText=c; 
     localStorage.setItem('steven_water',c); 
+    
+    // Recalculate Energy
+    const s = localStorage.getItem('steven_sleep_start'); 
+    const w = localStorage.getItem('steven_wake_time'); 
+    if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
 }
 
 // 5. CHECKLIST SYSTEM
@@ -536,28 +609,73 @@ async function loadDailyChecklist() {
             </div>`; 
         }); 
         const dd=document.getElementById('date-today-display'); if(dd) dd.innerText=tglIni;
+        
+        // Initial Recalc setelah load checklist
+        const s = localStorage.getItem('steven_sleep_start'); 
+        const w = localStorage.getItem('steven_wake_time'); 
+        if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w)));
+
     } catch(e){ c.innerHTML='<div class="text-[10px] text-red-400">Error</div>'; } 
 }
 
 window.toggleCheck = function(id, el) { 
     localStorage.setItem(id, el.checked); 
-    updateEnergyFromFood(); 
+    // Recalculate Energy saat Checklist berubah
+    const s = localStorage.getItem('steven_sleep_start'); 
+    const w = localStorage.getItem('steven_wake_time'); 
+    if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
 }
 
 // 6. UTILS
-function toggleSleep(isS) { const now = new Date(); if (isS) { localStorage.setItem('steven_sleep_start', now.getTime()); localStorage.removeItem('steven_wake_time'); updateSleepUI(true, now); } else { const s = localStorage.getItem('steven_sleep_start'); if (!s) return alert("Belum tidur!"); localStorage.setItem('steven_wake_time', now.getTime()); updateSleepUI(false, new Date(parseInt(s)), now); } }
-function updateSleepUI(isS, sDate, wDate=null) { const bS = document.getElementById('btn-sleep'); const bW = document.getElementById('btn-wake'); const st = document.getElementById('sleep-status-text'); const dS = document.getElementById('sleep-time-display'); const dW = document.getElementById('wake-time-display'); const fmt = d => `${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}`; if (isS) { bS.classList.add('opacity-50','cursor-not-allowed'); bS.onclick=null; bW.classList.remove('opacity-50','cursor-not-allowed'); bW.onclick=()=>toggleSleep(false); dS.innerText=fmt(sDate); dW.innerText="--.--"; st.innerText="Zzz..."; updateEnergyUI(0); } else { bS.classList.remove('opacity-50','cursor-not-allowed'); bS.onclick=()=>toggleSleep(true); bW.classList.add('opacity-50','cursor-not-allowed'); bW.onclick=null; dS.innerText=fmt(sDate); if(wDate) dW.innerText=fmt(wDate); st.innerText="Siap!"; if(wDate) calculateTotalEnergy(sDate, wDate); } }
-function updateSleepDurationRealtime(sDate) { const now = new Date(); const diff = now - sDate; const h = Math.floor(diff/3600000); const m = Math.floor((diff%3600000)/60000); const s = Math.floor((diff%60000)/1000); document.getElementById('sleep-duration-text').innerText=`Tidur: ${h}j ${m}m ${s}d`; }
-function calculateTotalEnergy(sDate, wDate) { const diff = wDate - sDate; let e = (diff/3600000/8)*100; if(document.getElementById('eat-1').checked) e+=15; if(document.getElementById('eat-2').checked) e+=15; if(document.getElementById('eat-3').checked) e+=15; const tasks = document.querySelectorAll('.check-anim:checked').length; e-=(tasks*5); if(e>100)e=100; if(e<0)e=0; const h = Math.floor(diff/3600000); const m = Math.floor((diff%3600000)/60000); document.getElementById('sleep-duration-text').innerText=`Total: ${h}j ${m}m`; updateEnergyUI(Math.round(e)); }
-function updateEnergyUI(v) { const bar = document.getElementById('energy-bar'); const txt = document.getElementById('energy-level'); if (bar && txt) { bar.style.width=`${v}%`; txt.innerText=`${v}%`; bar.className=`h-full transition-all duration-500 ${v>50?'bg-green-500':'bg-red-500'}`; } }
+window.toggleSleep = function(isS) { 
+    const now = new Date(); 
+    if (isS) { 
+        localStorage.setItem('steven_sleep_start', now.getTime()); 
+        localStorage.removeItem('steven_wake_time'); 
+        updateSleepUI(true, now); 
+    } else { 
+        const s = localStorage.getItem('steven_sleep_start'); 
+        if (!s) return alert("Belum tidur!"); 
+        localStorage.setItem('steven_wake_time', now.getTime()); 
+        updateSleepUI(false, new Date(parseInt(s)), now); 
+    } 
+}
+
+function updateSleepUI(isS, sDate, wDate=null) { 
+    const bS = document.getElementById('btn-sleep'); 
+    const bW = document.getElementById('btn-wake'); 
+    const st = document.getElementById('sleep-status-text'); 
+    const dS = document.getElementById('sleep-time-display'); 
+    const dW = document.getElementById('wake-time-display'); 
+    const fmt = d => `${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}`; 
+    
+    if (isS) { 
+        bS.classList.add('opacity-50','cursor-not-allowed'); bS.onclick=null; 
+        bW.classList.remove('opacity-50','cursor-not-allowed'); bW.onclick=()=>toggleSleep(false); 
+        dS.innerText=fmt(sDate); dW.innerText="--.--"; 
+        st.innerText="Zzz... Charging..."; 
+        updateEnergyUI(100); 
+        if(document.getElementById('sleep-quality-alert')) document.getElementById('sleep-quality-alert').classList.add('hidden');
+    } else { 
+        bS.classList.remove('opacity-50','cursor-not-allowed'); bS.onclick=()=>toggleSleep(true); 
+        bW.classList.add('opacity-50','cursor-not-allowed'); bW.onclick=null; 
+        dS.innerText=fmt(sDate); 
+        if(wDate) dW.innerText=fmt(wDate); 
+        st.innerText="Siap Beraktivitas!"; 
+        if(wDate) calculateComplexEnergy(sDate, wDate); 
+    } 
+}
+
+function updateEnergyUI(v) { 
+    const bar = document.getElementById('energy-bar'); 
+    const txt = document.getElementById('energy-level'); 
+    if (bar) bar.style.width=`${v}%`; 
+    if (txt) {
+        txt.innerText=`${v}%`; 
+        txt.classList.remove('animate-bounce', 'text-red-600'); // Reset animation
+    }
+}
 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
-
-
-
-
-
-
-
