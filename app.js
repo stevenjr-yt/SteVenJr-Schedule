@@ -422,36 +422,49 @@ window.deleteSchedule = async function(id, category) {
 // ==========================================
 // 4. HEALTH TRACKER REVISI TOTAL
 // ==========================================
-function initHealthTracker() { 
-    // Load data dummy (Nanti ganti fetch API)
-    document.getElementById('input-bb').value = localStorage.getItem('steven_berat') || 50;
-    document.getElementById('input-tb').value = localStorage.getItem('steven_tinggi') || 180;
-    calculateBMI(); 
-    
-    // Load Status Makan & Minum
-    document.getElementById('eat-1').checked = localStorage.getItem('steven_eat_1') === 'true';
-    document.getElementById('eat-2').checked = localStorage.getItem('steven_eat_2') === 'true';
-    document.getElementById('eat-3').checked = localStorage.getItem('steven_eat_3') === 'true';
-    const savedWater = localStorage.getItem('steven_water');
-    if(savedWater) document.getElementById('water-count').innerText = savedWater;
+async function initHealthTracker() { 
+    // 1. HARDCODE SETTINGAN HARI INI (Sesuai Request)
+    // Tidur 7.2 Jam, Bangun jam 06:00 Pagi Hari Ini
+    const now = new Date();
+    const wakeTimeObj = new Date();
+    wakeTimeObj.setHours(6, 0, 0, 0); // Set jam 06:00 hari ini
 
-    // Load Status Tidur
-    const s = localStorage.getItem('steven_sleep_start'); 
-    const w = localStorage.getItem('steven_wake_time'); 
-    
-    if (s && !w) {
-        // Sedang Tidur
-        updateSleepUI(true, new Date(parseInt(s))); 
-    } else if (s && w) {
-        // Sudah Bangun -> Hitung Energi Kompleks
-        updateSleepUI(false, new Date(parseInt(s)), new Date(parseInt(w))); 
+    // Hitung waktu mulai tidur (Mundur 7.2 jam dari jam 6 pagi)
+    // 0.2 jam = 12 menit. Jadi mundur 7 jam 12 menit.
+    const sleepStartObj = new Date(wakeTimeObj);
+    sleepStartObj.setHours(wakeTimeObj.getHours() - 7);
+    sleepStartObj.setMinutes(wakeTimeObj.getMinutes() - 12);
+
+    // Konversi ke Timestamp untuk Database/Kalkulasi
+    const w = wakeTimeObj.getTime();
+    const s = sleepStartObj.getTime();
+
+    // 2. Fetch Data Lain dari Server (Berat/Tinggi/Makan)
+    try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
         
-        // JALANKAN INTERVAL PENGURANGAN ENERGI (DECAY) SETIAP MENIT
+        // Isi UI Basic
+        document.getElementById('input-bb').value = data.bb || 50;
+        document.getElementById('input-tb').value = data.tb || 180;
+        document.getElementById('water-count').innerText = data.water || 0;
+        document.getElementById('eat-1').checked = data.eat_1 || false;
+        document.getElementById('eat-2').checked = data.eat_2 || false;
+        document.getElementById('eat-3').checked = data.eat_3 || false;
+        
+        calculateBMI();
+
+        // 3. JALANKAN LOGIKA ENERGI (Pakai Data Hardcode Waktu yg diminta)
+        // Kita paksa UI update seolah-olah data ini datang dari DB
+        updateSleepUI(false, new Date(s), new Date(w));
+        
+        // Jalankan interval pengurangan energi realtime
         setInterval(() => {
-            calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w)));
+            calculateComplexEnergy(new Date(s), new Date(w));
         }, 60000); 
-    } else {
-        updateEnergyUI(50); // Default jika belum ada data
+
+    } catch (e) {
+        console.error("Gagal load health data", e);
     }
 }
 
@@ -538,14 +551,28 @@ function updateProductivityForecast(energy, totalTask, doneTask) {
 }
 
 // Trigger Makan dengan Recalculate
-window.updateEnergyFromFood = function() { 
-    localStorage.setItem('steven_eat_1', document.getElementById('eat-1').checked);
-    localStorage.setItem('steven_eat_2', document.getElementById('eat-2').checked);
-    localStorage.setItem('steven_eat_3', document.getElementById('eat-3').checked);
+window.updateEnergyFromFood = async function() { 
+    const data = {
+        eat_1: document.getElementById('eat-1').checked,
+        eat_2: document.getElementById('eat-2').checked,
+        eat_3: document.getElementById('eat-3').checked
+    };
     
-    const s = localStorage.getItem('steven_sleep_start'); 
-    const w = localStorage.getItem('steven_wake_time'); 
-    if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
+    // Kirim ke Database
+    await fetch('/api/health', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify(data) 
+    });
+
+    // Recalculate Lokal (Biar UI langsung update gak nunggu refresh)
+    // Gunakan logika waktu hardcode yg sama seperti di initHealthTracker
+    // Agar konsisten untuk sesi ini
+    const now = new Date();
+    const w = new Date(); w.setHours(6,0,0,0);
+    const s = new Date(w); s.setHours(w.getHours()-7); s.setMinutes(w.getMinutes()-12);
+    
+    calculateComplexEnergy(s, w); 
 }
 
 window.calculateBMI = function() { 
@@ -559,17 +586,24 @@ window.calculateBMI = function() {
     const el=document.getElementById('bmi-status'); if(el){el.innerText=st; el.className=`text-[10px] font-bold mt-1 ${cl}`;}
 }
 
-window.updateWater = function(n) { 
-    let c = parseInt(document.getElementById('water-count').innerText)+n; if(c<0)c=0; 
-    document.getElementById('water-count').innerText=c; 
-    localStorage.setItem('steven_water',c); 
+window.updateWater = async function(n) { 
+    let c = parseInt(document.getElementById('water-count').innerText)+n; 
+    if(c<0)c=0; 
     
-    // Recalculate Energy
-    const s = localStorage.getItem('steven_sleep_start'); 
-    const w = localStorage.getItem('steven_wake_time'); 
-    if(s && w) calculateComplexEnergy(new Date(parseInt(s)), new Date(parseInt(w))); 
+    document.getElementById('water-count').innerText=c; 
+    
+    // Kirim ke Database
+    await fetch('/api/health', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ water: c }) 
+    });
+    
+    // Recalculate Lokal
+    const w = new Date(); w.setHours(6,0,0,0);
+    const s = new Date(w); s.setHours(w.getHours()-7); s.setMinutes(w.getMinutes()-12);
+    calculateComplexEnergy(s, w); 
 }
-
 // 5. CHECKLIST SYSTEM
 async function loadDailyChecklist() { 
     const c = document.getElementById('daily-checklist-container'); 
@@ -679,3 +713,4 @@ function updateEnergyUI(v) {
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
