@@ -185,7 +185,8 @@ function updateClock() {
     if(document.getElementById('admin-realtime-clock')) document.getElementById('admin-realtime-clock').innerText = `${h}:${m}:${s}`;
 }
 
-// 2. DASHBOARD & MENUfunction initDashboardFeatures() { 
+// 2. DASHBOARD & MENU
+function initDashboardFeatures() { 
     updateDashboardMenu(); 
     
     // SAYA KOMENTARI (NONAKTIFKAN) initHealthTracker DI SINI
@@ -870,6 +871,7 @@ if(btnLogout) btnLogout.addEventListener('click', ()=>{
         location.reload(); 
     } 
 });
+
 
 
 
