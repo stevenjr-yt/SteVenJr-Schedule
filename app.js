@@ -185,10 +185,12 @@ function updateClock() {
     if(document.getElementById('admin-realtime-clock')) document.getElementById('admin-realtime-clock').innerText = `${h}:${m}:${s}`;
 }
 
-// 2. DASHBOARD & MENU
-function initDashboardFeatures() { 
+// 2. DASHBOARD & MENUfunction initDashboardFeatures() { 
     updateDashboardMenu(); 
-    initHealthTracker(); // <--- WAJIB DITAMBAH BIAR JALAN DI DASHBOARD!
+    
+    // SAYA KOMENTARI (NONAKTIFKAN) initHealthTracker DI SINI
+    // Alasannya: Agar logic bar 'Daily Load' tidak tertimpa oleh logic 'Energi Tubuh'.
+    // initHealthTracker(); 
     
     setInterval(() => { 
         checkSystemStatus().then(() => {
@@ -298,6 +300,57 @@ async function loadTodaySchedule() {
         ];
 
         list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || "")); 
+
+        // --- INI BAGIAN LOGIKA BARU (HITUNG JAM PRODUKTIF) ---
+        let totalMinutes = 0;
+        
+        // 1. Loop untuk hitung durasi menit
+        list.forEach(item => {
+            if (item.waktu && item.waktu.includes('-')) {
+                try {
+                    const parts = item.waktu.split('-').map(t => t.trim());
+                    const toMinutes = (t) => {
+                        const [h, m] = t.split(/[:.]/).map(Number);
+                        return h * 60 + m;
+                    };
+                    const start = toMinutes(parts[0]);
+                    const end = toMinutes(parts[1]);
+                    if (end > start) totalMinutes += (end - start);
+                } catch (e) {}
+            }
+        });
+
+        // 2. Kalkulasi Persentase (Target 8 Jam = 480 Menit)
+        const targetMinutes = 480; 
+        const totalHours = (totalMinutes / 60).toFixed(1); 
+        let loadPercent = Math.round((totalMinutes / targetMinutes) * 100);
+
+        // 3. Update UI Bar & Teks
+        const bar = document.getElementById('energy-bar');
+        const txtLvl = document.getElementById('energy-level');
+        const txtDrain = document.getElementById('task-drain-text');
+        const txtForecast = document.getElementById('energy-forecast-text');
+
+        if(bar) {
+            const visualPercent = loadPercent > 100 ? 100 : loadPercent; 
+            bar.style.width = `${visualPercent}%`;
+            
+            // Logic Warna: Hijau -> Biru -> Merah (Overload)
+            if (loadPercent < 40) bar.className = "h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]";
+            else if (loadPercent <= 100) bar.className = "h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
+            else bar.className = "h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse";
+        }
+
+        if(txtLvl) txtLvl.innerText = `${loadPercent}%`;
+        if(txtDrain) txtDrain.innerText = `Total: ${totalHours} Jam Kegiatan`;
+
+        if(txtForecast) {
+            if (totalMinutes === 0) txtForecast.innerHTML = "<span class='text-gray-400 font-bold'>Hari Kosong.</span>";
+            else if (loadPercent < 50) txtForecast.innerHTML = "<span class='text-green-500 font-bold'>Jadwal Santai.</span>";
+            else if (loadPercent <= 100) txtForecast.innerHTML = "<span class='text-indigo-500 font-bold'>Produktif (Normal).</span>";
+            else txtForecast.innerHTML = "<span class='text-red-500 font-bold'><i class='fas fa-exclamation-circle'></i> OVERLOAD! ISTIRAHAT!</span>";
+        }
+        // --- AKHIR LOGIKA BARU ---
 
         for (let i = 0; i < list.length; i++) {
             for (let j = i + 1; j < list.length; j++) {
@@ -817,6 +870,7 @@ if(btnLogout) btnLogout.addEventListener('click', ()=>{
         location.reload(); 
     } 
 });
+
 
 
 
