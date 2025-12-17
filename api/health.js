@@ -1,6 +1,5 @@
 import admin from 'firebase-admin';
 
-// Inisialisasi Firebase (Cek agar tidak double init)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -19,17 +18,20 @@ export default async function handler(req, res) {
   const { method } = req;
   const docRef = db.collection('health_status').doc('current_status');
 
-  // GET: Ambil Status Kesehatan Terakhir
+  // GET: Ambil Data Terbaru (Untuk HP/Laptop saat pertama buka)
   if (method === 'GET') {
-    res.setHeader('Cache-Control', 'no-store'); // Jangan di-cache agar realtime
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     try {
       const doc = await docRef.get();
       if (!doc.exists) {
-        // Return default jika belum ada data
+        // Data Default jika database kosong
         return res.status(200).json({ 
             bb: 50, tb: 180, 
             sleep_start: null, wake_time: null, 
-            water: 0, eat_1: false, eat_2: false, eat_3: false 
+            water: 0, 
+            eat_1: false, eat_2: false, eat_3: false,
+            completed_tasks: [], // Array ID Checklist yg selesai
+            last_energy_level: 100 // Persentase Baterai Terakhir
         });
       }
       return res.status(200).json(doc.data());
@@ -38,15 +40,15 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST: Update Status (Merge data)
+  // POST: Simpan Perubahan (Sync)
   if (method === 'POST') {
     try {
       const body = req.body;
-      // Gunakan set({ ... }, { merge: true }) untuk update parsial
+      // { merge: true } memastikan data lain tidak terhapus saat update parsial
       await docRef.set(body, { merge: true });
-      return res.status(200).json({ message: 'Health Updated' });
+      return res.status(200).json({ message: 'Synced' });
     } catch (error) {
-      return res.status(500).json({ error: 'Update Failed' });
+      return res.status(500).json({ error: 'Sync Failed' });
     }
   }
 }
