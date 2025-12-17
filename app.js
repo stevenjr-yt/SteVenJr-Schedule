@@ -302,10 +302,9 @@ async function loadTodaySchedule() {
 
         list.sort((a, b) => (a.waktu || "").localeCompare(b.waktu || "")); 
 
-        // --- INI BAGIAN LOGIKA BARU (HITUNG JAM PRODUKTIF) ---
+        // --- START: LOGIKA DAILY LOAD (INDIKATOR FINAL) ---
         let totalMinutes = 0;
         
-        // 1. Loop untuk hitung durasi menit
         list.forEach(item => {
             if (item.waktu && item.waktu.includes('-')) {
                 try {
@@ -321,38 +320,68 @@ async function loadTodaySchedule() {
             }
         });
 
-        // 2. Kalkulasi Persentase (Target 8 Jam = 480 Menit)
+        // Target 8 Jam = 480 Menit
         const targetMinutes = 480; 
         const totalHours = (totalMinutes / 60).toFixed(1); 
         let loadPercent = Math.round((totalMinutes / targetMinutes) * 100);
 
-        // 3. Update UI Bar & Teks
+        // Max Mentok 100%
+        if (loadPercent > 100) loadPercent = 100;
+
+        // UI Update
         const bar = document.getElementById('energy-bar');
         const txtLvl = document.getElementById('energy-level');
         const txtDrain = document.getElementById('task-drain-text');
         const txtForecast = document.getElementById('energy-forecast-text');
 
         if(bar) {
-            const visualPercent = loadPercent > 100 ? 100 : loadPercent; 
-            bar.style.width = `${visualPercent}%`;
+            bar.style.width = `${loadPercent}%`;
             
-            // Logic Warna: Hijau -> Biru -> Merah (Overload)
-            if (loadPercent < 40) bar.className = "h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]";
-            else if (loadPercent <= 100) bar.className = "h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
-            else bar.className = "h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse";
+            // RESET CLASS AWAL
+            bar.className = "h-full transition-all duration-1000";
+
+            // LOGIKA WARNA & ANIMASI
+            if (loadPercent <= 15) {
+                // 0-15% : Sangat Santai (Hijau Muda)
+                bar.classList.add('bg-green-400', 'shadow-[0_0_10px_rgba(74,222,128,0.5)]');
+            } else if (loadPercent <= 25) {
+                // 16-25% : Santai (Hijau Normal)
+                bar.classList.add('bg-green-500', 'shadow-[0_0_10px_rgba(34,197,94,0.5)]');
+            } else if (loadPercent <= 50) {
+                // 26-50% : Produktif (Indigo)
+                bar.classList.add('bg-indigo-500', 'shadow-[0_0_10px_rgba(99,102,241,0.5)]');
+            } else if (loadPercent <= 80) {
+                // 51-80% : Sibuk (Orange - BAR KEDAP KEDIP)
+                bar.classList.add('bg-orange-500', 'shadow-[0_0_10px_rgba(249,115,22,0.5)]', 'animate-pulse');
+            } else {
+                // 81-100% : Sangat Sibuk (Merah)
+                bar.classList.add('bg-red-600', 'shadow-[0_0_10px_rgba(220,38,38,0.5)]');
+            }
         }
 
         if(txtLvl) txtLvl.innerText = `${loadPercent}%`;
         if(txtDrain) txtDrain.innerText = `Total: ${totalHours} Jam Kegiatan`;
 
+        // LOGIKA TEKS MOTIVASI
         if(txtForecast) {
-            if (totalMinutes === 0) txtForecast.innerHTML = "<span class='text-gray-400 font-bold'>Hari Kosong.</span>";
-            else if (loadPercent < 50) txtForecast.innerHTML = "<span class='text-green-500 font-bold'>Jadwal Santai.</span>";
-            else if (loadPercent <= 100) txtForecast.innerHTML = "<span class='text-indigo-500 font-bold'>Produktif (Normal).</span>";
-            else txtForecast.innerHTML = "<span class='text-red-500 font-bold'><i class='fas fa-exclamation-circle'></i> OVERLOAD! ISTIRAHAT!</span>";
+            if (totalMinutes === 0) {
+                txtForecast.innerHTML = "<span class='text-gray-400 font-bold'>Hari Kosong.</span>";
+            } else if (loadPercent <= 15) {
+                txtForecast.innerHTML = "<span class='text-green-400 font-bold'>Sangat Santai.</span>";
+            } else if (loadPercent <= 25) {
+                txtForecast.innerHTML = "<span class='text-green-600 font-bold'>Santai.</span>";
+            } else if (loadPercent <= 50) {
+                txtForecast.innerHTML = "<span class='text-indigo-500 font-bold'>Produktif.</span>";
+            } else if (loadPercent <= 80) {
+                txtForecast.innerHTML = "<span class='text-orange-500 font-bold'>Sibuk.</span>";
+            } else {
+                // 81-100% : Sangat Sibuk - TEKS KEDAP KEDIP
+                txtForecast.innerHTML = "<span class='text-red-600 font-bold animate-pulse'>SANGAT SIBUK!</span>";
+            }
         }
-        // --- AKHIR LOGIKA BARU ---
+        // --- END LOGIKA DAILY LOAD ---
 
+        // Cek Konflik
         for (let i = 0; i < list.length; i++) {
             for (let j = i + 1; j < list.length; j++) {
                 const itemA = list[i];
@@ -377,6 +406,7 @@ async function loadTodaySchedule() {
         }).join('');
 
     } catch (e) { 
+        console.error(e);
         container.innerHTML = '<p class="text-red-400 text-center text-xs">Gagal memuat jadwal.</p>'; 
     }
 }
@@ -871,6 +901,7 @@ if(btnLogout) btnLogout.addEventListener('click', ()=>{
         location.reload(); 
     } 
 });
+
 
 
 
