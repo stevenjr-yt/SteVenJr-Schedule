@@ -760,6 +760,8 @@ function updateSleepUI(isS, sDate, wDate=null) {
     } 
 }
 
+// --- BAGIAN INI ADA DI PALING BAWAH FILE APP.JS ---
+
 function updateEnergyUI(v) { 
     const bar = document.getElementById('energy-bar'); 
     const txt = document.getElementById('energy-level'); 
@@ -768,7 +770,10 @@ function updateEnergyUI(v) {
         txt.innerText=`${v}%`; 
         txt.classList.remove('animate-bounce', 'text-red-600'); // Reset animation
     }
-    function syncEnergyWithServer() {
+} // <--- Tutup kurung fungsi updateEnergyUI di sini
+
+// Fungsi ini harus DILUAR, agar bisa dipanggil oleh checklist & makan/minum
+function syncEnergyWithServer() {
     // Helper untuk memastikan hitungan selalu konsisten
     // Menggunakan patokan waktu Hardcode jam 06:00 pagi
     const w = new Date(); 
@@ -778,13 +783,43 @@ function updateEnergyUI(v) {
     s.setHours(w.getHours() - 7); 
     s.setMinutes(w.getMinutes() - 12); 
     
-    calculateComplexEnergy(s, w); 
+    // Pastikan fungsi calculateComplexEnergy sudah ada di atas
+    if (typeof calculateComplexEnergy === "function") {
+        calculateComplexEnergy(s, w); 
+    }
 }
-}
+
+// Login Logic
+const loginBtn = document.getElementById('btn-login'); 
+if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ 
+    e.preventDefault(); 
+    const email=document.getElementById('email').value; 
+    const pass=document.getElementById('password').value; 
+    try { 
+        const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); 
+        if(res.ok) { 
+            localStorage.setItem('admin_email',email); 
+            localStorage.setItem('admin_password',pass); 
+            showAdminPanel(); 
+        } else { 
+            const d=await res.json(); 
+            alert(d.message||"Salah"); 
+        } 
+    } catch(e){alert("Error");} 
+});
+
+const btnLogout = document.getElementById('btn-logout'); 
+if(btnLogout) btnLogout.addEventListener('click', ()=>{ 
+    if(confirm("Logout?")) { 
+        localStorage.clear(); 
+        location.reload(); 
+    } 
+});
 
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
 
 
