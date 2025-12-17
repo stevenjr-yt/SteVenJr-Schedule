@@ -507,18 +507,31 @@ function calculateComplexEnergy(sDate, wDate) {
     const tasksTotal = document.querySelectorAll('.check-anim').length; // Total tugas
     const taskDrain = tasksDone * 3; // Setiap tugas mengurangi 3%
 
+    // ... (kode atasnya biarkan sama) ...
+
     // 5. TOTAL AKHIR
     let currentEnergy = energyModal - timeDecay + fuel - taskDrain;
     
-    // Normalisasi (Gak boleh minus, gak boleh lebih dari 100)
+    // Normalisasi
     if(currentEnergy > 100) currentEnergy = 100;
     if(currentEnergy < 0) currentEnergy = 0;
 
-    // Update Bar UI
-    updateEnergyUI(Math.round(currentEnergy));
-    
-    // Update Forecast Produktivitas (Alert Energi)
-    updateProductivityForecast(currentEnergy, tasksTotal, tasksDone);
+    const finalEnergy = Math.round(currentEnergy);
+
+    // Update UI Lokal
+    updateEnergyUI(finalEnergy);
+    updateProductivityForecast(finalEnergy, tasksTotal, tasksDone);
+
+    // --- SYNC PERSENTASE KE SERVER ---
+    // Cek agar tidak mengirim data duplikat terus menerus
+    if (window.lastSentEnergy !== finalEnergy) {
+        window.lastSentEnergy = finalEnergy;
+        fetch('/api/health', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ last_energy_level: finalEnergy }) 
+        }).catch(e => console.log("Silent sync error"));
+    }
 }
 
 // Helper untuk Forecast
@@ -772,5 +785,6 @@ function updateEnergyUI(v) {
 // Login
 const loginBtn = document.getElementById('btn-login'); if(loginBtn) loginBtn.addEventListener('click', async (e)=>{ e.preventDefault(); const email=document.getElementById('email').value; const pass=document.getElementById('password').value; try { const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}); if(res.ok) { localStorage.setItem('admin_email',email); localStorage.setItem('admin_password',pass); showAdminPanel(); } else { const d=await res.json(); alert(d.message||"Salah"); } } catch(e){alert("Error");} });
 const btnLogout = document.getElementById('btn-logout'); if(btnLogout) btnLogout.addEventListener('click', ()=>{ if(confirm("Logout?")) { localStorage.clear(); location.reload(); } });
+
 
 
