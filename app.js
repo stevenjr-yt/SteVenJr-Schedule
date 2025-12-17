@@ -188,6 +188,8 @@ function updateClock() {
 // 2. DASHBOARD & MENU
 function initDashboardFeatures() { 
     updateDashboardMenu(); 
+    initHealthTracker(); // <--- WAJIB DITAMBAH BIAR JALAN DI DASHBOARD!
+    
     setInterval(() => { 
         checkSystemStatus().then(() => {
             fetchSettings().then(() => { updateDashboardMenu(); loadTodaySchedule(); });
@@ -815,6 +817,7 @@ if(btnLogout) btnLogout.addEventListener('click', ()=>{
         location.reload(); 
     } 
 });
+
 
 
 
