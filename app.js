@@ -823,6 +823,93 @@ function updateSleepUI(isS, sDate, wDate=null) {
     } 
 }
 
+// --- TARUH INI DI ATAS function updateEnergyUI ---
+
+function calculateComplexEnergy(sDate, wDate) {
+    const now = new Date();
+    
+    // 1. HITUNG DURASI TIDUR (REAL)
+    const sleepMs = wDate - sDate;
+    const sleepHours = sleepMs / (1000 * 60 * 60); // Konversi ke Jam
+    
+    // Update Teks Durasi di UI (Jika ada elemennya)
+    const durasiElem = document.getElementById('durasi-tidur-text'); // Pastikan ID ini sesuai HTML kamu
+    if(durasiElem) {
+       const jam = Math.floor(sleepHours);
+       const menit = Math.floor((sleepHours - jam) * 60);
+       durasiElem.innerText = `Durasi: ${jam} Jam ${menit} Menit`;
+    }
+
+    // 2. HITUNG MODAL ENERGI (Target 8 Jam = 100%)
+    let energyModal = (sleepHours / 8) * 100; 
+    if(energyModal > 100) energyModal = 100;
+
+    // UI Alert Kualitas Tidur
+    const sleepAlert = document.getElementById('sleep-quality-alert');
+    if(sleepAlert) {
+        sleepAlert.classList.remove('hidden');
+        if(sleepHours < 6) {
+            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-red-100 text-red-600 border border-red-200 animate-pulse";
+            sleepAlert.innerText = `KURANG TIDUR: ${sleepHours.toFixed(1)} JAM`;
+        } else {
+            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-green-100 text-green-600 border border-green-200";
+            sleepAlert.innerText = `TIDUR CUKUP: ${sleepHours.toFixed(1)} JAM`;
+        }
+    }
+
+    // 3. HITUNG PENGURANGAN ENERGI (DECAY)
+    // Energi berkurang 5% per jam setelah bangun
+    const hoursAwake = (now - wDate) / (1000 * 60 * 60);
+    // Jika hoursAwake negatif (artinya baru diset bangun di masa depan/error), anggap 0
+    const validAwake = hoursAwake > 0 ? hoursAwake : 0; 
+    const timeDecay = validAwake * 5; 
+
+    // 4. HITUNG ASUPAN (MAKAN/MINUM)
+    let fuel = 0;
+    if(document.getElementById('eat-1') && document.getElementById('eat-1').checked) fuel += 15;
+    if(document.getElementById('eat-2') && document.getElementById('eat-2').checked) fuel += 15;
+    if(document.getElementById('eat-3') && document.getElementById('eat-3').checked) fuel += 15;
+    
+    const waterElem = document.getElementById('water-count');
+    if(waterElem) {
+        const waterLevel = parseInt(waterElem.innerText) || 0;
+        fuel += (waterLevel * 2); 
+    }
+
+    // 5. HITUNG BEBAN TUGAS (Checklist)
+    const tasksDone = document.querySelectorAll('.check-anim:checked').length;
+    const tasksTotal = document.querySelectorAll('.check-anim').length;
+    const taskDrain = tasksDone * 3; 
+
+    // 6. TOTAL AKHIR
+    let currentEnergy = energyModal - timeDecay + fuel - taskDrain;
+    
+    // Normalisasi (0 - 100)
+    if(currentEnergy > 100) currentEnergy = 100;
+    if(currentEnergy < 0) currentEnergy = 0;
+
+    const finalEnergy = Math.round(currentEnergy);
+
+    // Update UI
+    updateEnergyUI(finalEnergy);
+    
+    // Update Forecast Text
+    if (typeof updateProductivityForecast === "function") {
+        updateProductivityForecast(finalEnergy, tasksTotal, tasksDone);
+    }
+
+    // --- SYNC HASIL HITUNGAN KE SERVER (Opsional, agar tidak spam) ---
+    if (window.lastSentEnergy !== finalEnergy) {
+        window.lastSentEnergy = finalEnergy;
+        // Silent sync
+        fetch('/api/health', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ last_energy_level: finalEnergy }) 
+        }).catch(e => {});
+    }
+}
+
 // --- BAGIAN INI ADA DI PALING BAWAH FILE APP.JS ---
 
 function updateEnergyUI(v) { 
