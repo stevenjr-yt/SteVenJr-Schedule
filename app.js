@@ -11,6 +11,10 @@ let isDbConnected = true;
 let isMaintenanceMode = false; 
 let completedTaskIds = []; // Variabel untuk sinkronisasi checklist
 
+// TAMBAHAN BARU (GLOBAL VAR):
+let globalSleepStart = null;
+let globalWakeTime = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     // Cek Login Local
     const savedEmail = localStorage.getItem('admin_email');
@@ -507,28 +511,13 @@ window.deleteSchedule = async function(id, category) {
 }
 
 async function initHealthTracker() { 
-    // 1. HARDCODE SETTINGAN WAKTU (Agar kalkulasi Konsisten Hari Ini)
-    // Tidur 7.2 Jam, Bangun jam 06:00 Pagi Hari Ini
-    const now = new Date();
-    const wakeTimeObj = new Date();
-    wakeTimeObj.setHours(6, 0, 0, 0); // Set jam 06:00 hari ini
-
-    const sleepStartObj = new Date(wakeTimeObj);
-    sleepStartObj.setHours(wakeTimeObj.getHours() - 7);
-    sleepStartObj.setMinutes(wakeTimeObj.getMinutes() - 12);
-
-    const w = wakeTimeObj.getTime();
-    const s = sleepStartObj.getTime();
-
-    // 2. Fetch Data Sinkronisasi dari Server
     try {
+        // 1. Fetch Data dari Server
         const res = await fetch('/api/health');
         const data = await res.json();
         
-        // Simpan list checklist yg sudah selesai ke variabel global
+        // Load Checklist & Data Fisik Standard
         completedTaskIds = data.completed_tasks || [];
-
-        // Isi UI Basic dari Database
         document.getElementById('input-bb').value = data.bb || 50;
         document.getElementById('input-tb').value = data.tb || 180;
         document.getElementById('water-count').innerText = data.water || 0;
@@ -538,85 +527,61 @@ async function initHealthTracker() {
         
         calculateBMI();
 
-        // 3. JALANKAN LOGIKA ENERGI 
-        // Paksa UI update seolah-olah data ini datang dari DB dengan waktu Hardcode
-        updateSleepUI(false, new Date(s), new Date(w));
+        // 2. LOGIKA UTAMA (MODAL vs DB REAL)
         
-        // Jalankan interval pengurangan energi realtime
+        // Skenario A: Database KOSONG (Belum ada data tidur hari ini)
+        if (!data.sleep_start) {
+            console.log("Database kosong. Menyuntikkan modal awal (00:00 - 05:00)...");
+
+            const now = new Date();
+            // Set Bangun: Jam 05:00 Pagi Ini
+            const modalWake = new Date();
+            modalWake.setHours(5, 0, 0, 0); 
+            // Set Tidur: Jam 00:00 (Tengah Malam Tadi)
+            const modalSleep = new Date(modalWake);
+            modalSleep.setHours(0, 0, 0, 0); 
+
+            // Simpan ke Global Variable
+            globalSleepStart = modalSleep;
+            globalWakeTime = modalWake;
+
+            // PENTING: SIMPAN KE DATABASE SERVER (Biar pas refresh gak hilang)
+            await fetch('/api/health', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    sleep_start: modalSleep.getTime(), 
+                    wake_time: modalWake.getTime() 
+                })
+            });
+            
+            // Update UI
+            updateSleepUI(false, globalSleepStart, globalWakeTime);
+
+        } else {
+            // Skenario B: Database ADA ISINYA (Entah modal tadi, atau data tidur baru)
+            const dbSleep = new Date(data.sleep_start);
+            const dbWake = data.wake_time ? new Date(data.wake_time) : null;
+
+            globalSleepStart = dbSleep;
+            globalWakeTime = dbWake;
+
+            if (dbSleep && !dbWake) {
+                // Sedang Tidur (Lagi nge-charge)
+                updateSleepUI(true, globalSleepStart); 
+            } else {
+                // Sudah Bangun
+                updateSleepUI(false, globalSleepStart, globalWakeTime); 
+            }
+        }
+
+        // Jalankan interval update energi per menit
         setInterval(() => {
             syncEnergyWithServer();
         }, 60000); 
 
     } catch (e) {
         console.error("Gagal load health data", e);
-    }
-}
-// UPDATE LOGIKA ENERGI
-function calculateComplexEnergy(sDate, wDate) {
-    const now = new Date();
-    
-    // 1. HITUNG MODAL TIDUR (Target 8 Jam = 100%)
-    const sleepMs = wDate - sDate;
-    const sleepHours = sleepMs / (1000 * 60 * 60); // Konversi ke Jam
-    let energyModal = (sleepHours / 8) * 100; 
-    if(energyModal > 100) energyModal = 100;
-
-    // UPDATE UI ALERT TIDUR (Di Admin HTML)
-    const sleepAlert = document.getElementById('sleep-quality-alert');
-    if(sleepAlert) {
-        sleepAlert.classList.remove('hidden');
-        if(sleepHours < 6) {
-            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-red-100 text-red-600 border border-red-200 animate-pulse";
-            sleepAlert.innerText = `KURANG TIDUR: ${sleepHours.toFixed(1)} JAM`;
-        } else {
-            sleepAlert.className = "mt-2 text-[10px] font-bold px-2 py-1 rounded text-center bg-green-100 text-green-600 border border-green-200";
-            sleepAlert.innerText = `TIDUR CUKUP: ${sleepHours.toFixed(1)} JAM`;
-        }
-    }
-
-    // 2. HITUNG PENGURANGAN ENERGI (DECAY) BERDASARKAN WAKTU
-    // Energi berkurang 5% setiap 1 jam setelah bangun
-    const hoursAwake = (now - wDate) / (1000 * 60 * 60);
-    const timeDecay = hoursAwake * 5; 
-
-    // 3. HITUNG ASUPAN (FUEL)
-    let fuel = 0;
-    if(document.getElementById('eat-1').checked) fuel += 15; // Makan nambah 15%
-    if(document.getElementById('eat-2').checked) fuel += 15;
-    if(document.getElementById('eat-3').checked) fuel += 15;
-    
-    const waterLevel = parseInt(document.getElementById('water-count').innerText) || 0;
-    fuel += (waterLevel * 2); // Air nambah 2% per unit
-
-    // 4. HITUNG BEBAN AKTIVITAS (Checklist)
-    const tasksDone = document.querySelectorAll('.check-anim:checked').length; // Yang sudah dicentang
-    const tasksTotal = document.querySelectorAll('.check-anim').length; // Total tugas
-    const taskDrain = tasksDone * 3; // Setiap tugas mengurangi 3%
-
-    // ... (kode atasnya biarkan sama) ...
-
-    // 5. TOTAL AKHIR
-    let currentEnergy = energyModal - timeDecay + fuel - taskDrain;
-    
-    // Normalisasi
-    if(currentEnergy > 100) currentEnergy = 100;
-    if(currentEnergy < 0) currentEnergy = 0;
-
-    const finalEnergy = Math.round(currentEnergy);
-
-    // Update UI Lokal
-    updateEnergyUI(finalEnergy);
-    updateProductivityForecast(finalEnergy, tasksTotal, tasksDone);
-
-    // --- SYNC PERSENTASE KE SERVER ---
-    // Cek agar tidak mengirim data duplikat terus menerus
-    if (window.lastSentEnergy !== finalEnergy) {
-        window.lastSentEnergy = finalEnergy;
-        fetch('/api/health', { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({ last_energy_level: finalEnergy }) 
-        }).catch(e => console.log("Silent sync error"));
     }
 }
 
@@ -792,32 +757,44 @@ window.toggleCheck = async function(id, el) {
 window.toggleSleep = async function(isS) { 
     const now = new Date(); 
     if (isS) { 
-        // STATUS: MAU TIDUR -> Kirim ke DB
+        // --- TOMBOL TIDUR DITEKAN ---
+        // Ini akan menimpa data modal (00:00-05:00) dengan waktu tidur BARU
         try {
             await fetch('/api/health', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sleep_start: now.getTime(), wake_time: null })
             });
-            updateSleepUI(true, now); 
-        } catch(e) {}
-    } else { 
-        // STATUS: BANGUN -> Ambil waktu tidur dr DB -> Kirim Waktu Bangun
-        try {
-            const res = await fetch('/api/health');
-            const data = await res.json();
-            const s = data.sleep_start;
             
-            if (!s) return alert("Data tidur tidak ditemukan di server!"); 
+            // Update memori lokal
+            globalSleepStart = now;
+            globalWakeTime = null;
+            
+            updateSleepUI(true, now); 
+        } catch(e) { alert("Gagal update status tidur"); }
 
+    } else { 
+        // --- TOMBOL BANGUN DITEKAN ---
+        if (!globalSleepStart) {
+            // Safety: Ambil dari DB kalau variable global kosong
+            const r = await fetch('/api/health');
+            const d = await r.json();
+            if(d.sleep_start) globalSleepStart = new Date(d.sleep_start);
+            else return alert("Data error: Belum mulai tidur.");
+        }
+
+        try {
             await fetch('/api/health', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ wake_time: now.getTime() })
             });
             
-            updateSleepUI(false, new Date(s), now); 
-        } catch(e) {}
+            // Update memori lokal
+            globalWakeTime = now;
+            
+            updateSleepUI(false, globalSleepStart, globalWakeTime); 
+        } catch(e) { alert("Gagal update status bangun"); }
     } 
 }
 
@@ -859,19 +836,22 @@ function updateEnergyUI(v) {
 } // <--- Tutup kurung fungsi updateEnergyUI di sini
 
 // Fungsi ini harus DILUAR, agar bisa dipanggil oleh checklist & makan/minum
+// Fungsi ini harus DILUAR
 function syncEnergyWithServer() {
-    // Helper untuk memastikan hitungan selalu konsisten
-    // Menggunakan patokan waktu Hardcode jam 06:00 pagi
-    const w = new Date(); 
-    w.setHours(6, 0, 0, 0); 
-    
-    const s = new Date(w); 
-    s.setHours(w.getHours() - 7); 
-    s.setMinutes(w.getMinutes() - 12); 
-    
-    // Pastikan fungsi calculateComplexEnergy sudah ada di atas
-    if (typeof calculateComplexEnergy === "function") {
-        calculateComplexEnergy(s, w); 
+    // Kalau data belum siap, jangan hitung
+    if (!globalSleepStart) return;
+
+    // Jika sedang tidur (Wake Time belum ada), energi 100%
+    if (globalSleepStart && !globalWakeTime) {
+        updateEnergyUI(100);
+        return;
+    }
+
+    // Jika sudah bangun, hitung mundur energi dari waktu bangun ASLI
+    if (globalSleepStart && globalWakeTime) {
+        if (typeof calculateComplexEnergy === "function") {
+            calculateComplexEnergy(globalSleepStart, globalWakeTime); 
+        }
     }
 }
 
@@ -901,6 +881,7 @@ if(btnLogout) btnLogout.addEventListener('click', ()=>{
         location.reload(); 
     } 
 });
+
 
 
 
