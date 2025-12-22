@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Timestamp Tool</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Poppins:wght@400;600&display=swap');
+
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --text-main: #f1f5f9;
+            --text-sec: #94a3b8;
+            --success: #22c55e;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid #334155;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-sec);
+            font-size: 0.9rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: var(--text-main);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background-color: var(--accent);
+            color: #0f172a;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        button.outline {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            margin-top: 5px;
+        }
+
+        button.outline:hover {
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        .result-box {
+            margin-top: 15px;
+            background: #0b1120;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--success);
+            cursor: pointer;
+            position: relative;
+            border: 1px dashed #334155;
+        }
+
+        .result-box:hover {
+            background: #111a2e;
+            border-color: var(--success);
+        }
+
+        .result-box::after {
+            content: 'Click to Copy';
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: var(--success);
+            color: #000;
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: sans-serif;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .result-box:hover::after {
+            opacity: 1;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>TIMESTAMP TOOLS</h2>
+
+        <div class="section">
+            <label>Pilih Waktu (Date & Time)</label>
+            <input type="datetime-local" id="dateInput">
+            <button onclick="convertToTimestamp()">Convert to Timestamp (13 Digit)</button>
+            <div class="result-box" id="resultTimestamp" onclick="copyText('resultTimestamp')">
+                -
+            </div>
+        </div>
+
+        <div class="section">
+            <label>Preset Khusus (Request Lu)</label>
+            <div class="grid-2">
+                <button class="outline" onclick="setPreset('yesterday')">Semalam (21:30)</button>
+                <button class="outline" onclick="setPreset('today')">Hari Ini (05:45)</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <label>Cek Timestamp (Paste 13 Digit)</label>
+            <input type="number" id="timestampInput" placeholder="Contoh: 1766370812273">
+            <button onclick="convertToDate()">Cek Waktu</button>
+            <div class="result-box" id="resultDate" onclick="copyText('resultDate')" style="font-size: 0.9rem;">
+                -
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set Default Input ke Sekarang
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('dateInput').value = now.toISOString().slice(0,16);
+
+        function convertToTimestamp() {
+            const inputVal = document.getElementById('dateInput').value;
+            if (!inputVal) return;
+            
+            const dateObj = new Date(inputVal);
+            const timestamp = dateObj.getTime(); // Ini udah otomatis ms (13 digit)
+            
+            const resultEl = document.getElementById('resultTimestamp');
+            resultEl.innerText = timestamp;
+            blinkEffect(resultEl);
+        }
+
+        function convertToDate() {
+            const ts = document.getElementById('timestampInput').value;
+            if (!ts) return;
+
+            // Handle 10 digit (detik) vs 13 digit (ms)
+            let timeVal = parseInt(ts);
+            if (ts.length === 10) timeVal *= 1000;
+
+            const dateObj = new Date(timeVal);
+            
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                timeZoneName: 'short' 
+            };
+            
+            const resultEl = document.getElementById('resultDate');
+            resultEl.innerText = dateObj.toLocaleString('id-ID', options);
+            blinkEffect(resultEl);
+        }
+
+        function setPreset(type) {
+            const d = new Date();
+            
+            if (type === 'yesterday') {
+                // Set ke kemarin
+                d.setDate(d.getDate() - 1);
+                d.setHours(21, 30, 0, 0);
+            } else if (type === 'today') {
+                // Set ke hari ini pagi
+                d.setHours(5, 45, 0, 0);
+            }
+
+            // Update Input field biar user tau tanggalnya
+            // Trik untuk format datetime-local
+            const offsetDate = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+            document.getElementById('dateInput').value = offsetDate.toISOString().slice(0,16);
+            
+            // Langsung convert
+            convertToTimestamp();
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            if (text === '-') return;
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied: " + text);
+            });
+        }
+
+        function blinkEffect(el) {
+            el.style.borderColor = '#fff';
+            setTimeout(() => {
+                el.style.borderColor = '#22c55e';
+            }, 200);
+        }
+    </script>
+</body>
+</html>
