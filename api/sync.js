@@ -118,6 +118,7 @@ const dailyData = [
 ];
 
 // 2. DATA JADWAL UTS (Ganjil 2026/2027 Sesuai Kelas KRS)
+// GSA: 27 Okt (Malam) s/d 31 Okt 2026 -> Semua ujian di Jumat 30 Okt Bentrok!
 const utsData = [
   {
     tanggal: '2026-10-26',
@@ -172,7 +173,9 @@ const utsData = [
     kelas: '5TI2',
     ruangan: 'LAB Artificial Intelligence (F.1.1)',
     dosen: 'MUHAMMAD FAUZAN AZIMA, S.Kom., M.T.I.',
-    tipe: 'Praktek'
+    tipe: 'Praktek',
+    isConflict: true,
+    solusi: 'Bentrok Penugasan GSA 2026 (27-31 Okt) -> Solusi: Mengajukan Dispensasi & Mengikuti UTS Susulan ke Dosen (M. Fauzan Azima, M.T.I.)'
   },
   {
     tanggal: '2026-10-30',
@@ -185,20 +188,7 @@ const utsData = [
     dosen: 'ISNANDAR AGUS, S.Pd., M.Kom',
     tipe: 'Teori',
     isConflict: true,
-    solusi: 'Bentrok dengan Jadwal GSA 2026 Batch 2 -> Solusi: Mengikuti UTS Susulan'
-  },
-  {
-    tanggal: '2026-10-30',
-    hari: 'Jumat',
-    waktu: '10:30-12:00',
-    matkul: '[BENTROK] Google Student Ambassador (GSA 2026)',
-    kode: 'GSA-B2',
-    kelas: 'GSA Batch 2',
-    ruangan: 'Google Meet / Onboarding Session',
-    dosen: 'Google Team',
-    tipe: 'Praktek',
-    isConflict: true,
-    solusi: 'Agenda Wajib GSA Batch 2 -> Rekomendasi: Mengajukan Dispensasi & UTS Susulan Software Engineering ke BAAK'
+    solusi: 'Bentrok Penugasan GSA 2026 (27-31 Okt) -> Solusi: Mengajukan Dispensasi & Mengikuti UTS Susulan ke Dosen (Isnandar Agus, M.Kom)'
   },
   {
     tanggal: '2026-10-30',
@@ -209,7 +199,22 @@ const utsData = [
     kelas: '7TI2',
     ruangan: 'F.3.5',
     dosen: 'MONETA NAULI BASA HARAHAP, SE., MM',
-    tipe: 'Teori'
+    tipe: 'Teori',
+    isConflict: true,
+    solusi: 'Bentrok Penugasan GSA 2026 (27-31 Okt) -> Solusi: Mengajukan Dispensasi & Mengikuti UTS Susulan ke Dosen (Moneta Nauli Basa Harahap, MM)'
+  },
+  {
+    tanggal: '2026-10-30',
+    hari: 'Jumat',
+    waktu: '07:30-17:00',
+    matkul: '[BENTROK SEHARIAN] Penugasan Google Student Ambassador (GSA 2026 Batch 2)',
+    kode: 'GSA-B2',
+    kelas: 'GSA Batch 2',
+    ruangan: 'Onboarding & Training Event (27-31 Okt)',
+    dosen: 'Google Team & BAAK/PLPP',
+    tipe: 'Penugasan Resmi',
+    isConflict: true,
+    solusi: 'Penugasan resmi mewakili kampus (27-31 Okt). KETIGA ujian hari Jumat (Advanced Mobile Programming, Software Engineering, Kewarganegaraan) wajib mengajukan UTS Susulan resmi ke BAAK / PLPP.'
   },
   {
     tanggal: '2026-11-02',
@@ -246,31 +251,67 @@ const utsData = [
   }
 ];
 
+// 3. DATA KEGIATAN PERSONAL
+const personalData = [
+  {
+    matkul: 'Penugasan Google Student Ambassador (GSA 2026 Batch 2)',
+    keterangan: 'Orientation, Training & Onboarding Event se-Indonesia',
+    ruangan: 'Google Indonesia / National Summit',
+    hari: '27-31 Okt 2026',
+    tanggal: '2026-10-27',
+    waktu: '27 Okt (Malam) - 31 Okt 2026',
+    tipe: 'Penugasan',
+    isConflict: true,
+    solusi: 'Agenda resmi GSA bertabrakan dengan UTS 30 Okt -> Wajib UTS Susulan untuk 3 Matkul'
+  },
+  {
+    matkul: 'Mengajar Koding dan Kecerdasan Artifisial',
+    keterangan: 'SMKK BPK PENABUR Bandar Lampung',
+    ruangan: 'SMKK BPK PENABUR Bandar Lampung',
+    hari: 'Jumat',
+    waktu: '07:00 - 10:25',
+    tipe: 'Pengajaran'
+  },
+  {
+    matkul: 'Pembina SMBB & Ibadah Rutin',
+    keterangan: 'Vihara Bodhisattva',
+    ruangan: 'Vihara Bodhisattva',
+    hari: 'Minggu',
+    waktu: '08:00 - 12:00',
+    tipe: 'Sosial / Ibadah'
+  }
+];
+
 export default async function handler(req, res) {
   try {
-    // 1. Hapus isi collection daily lama
+    // 1. Hapus isi collection daily lama & update baru
     const dailySnap = await db.collection('daily').get();
     for (const doc of dailySnap.docs) {
       await doc.ref.delete();
     }
-
-    // 2. Masukkan jadwal kuliah harian baru
     for (const item of dailyData) {
       await db.collection('daily').add(item);
     }
 
-    // 3. Hapus isi collection uts lama
+    // 2. Hapus isi collection uts lama & update baru
     const utsSnap = await db.collection('uts').get();
     for (const doc of utsSnap.docs) {
       await doc.ref.delete();
     }
-
-    // 4. Masukkan jadwal UTS baru beserta bentrok GSA & solusi susulan
     for (const item of utsData) {
       await db.collection('uts').add(item);
     }
 
-    // 5. Aktifkan mode UTS di config/display_mode
+    // 3. Hapus isi collection personal lama & update baru
+    const personalSnap = await db.collection('personal').get();
+    for (const doc of personalSnap.docs) {
+      await doc.ref.delete();
+    }
+    for (const item of personalData) {
+      await db.collection('personal').add(item);
+    }
+
+    // 4. Aktifkan mode UTS di config/display_mode
     await db.collection('config').doc('display_mode').set({
       show_uts: true,
       show_uas: false
@@ -278,9 +319,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: 'Jadwal Kuliah Harian (9 Matkul) & Jadwal UTS Ganjil 2026 berhasil disinkronkan ke Firebase!',
+      message: 'Jadwal Kuliah Harian, UTS 2026, dan Bentrok GSA (27-31 Okt) dengan UTS Susulan berhasil disinkronkan!',
       daily_count: dailyData.length,
       uts_count: utsData.length,
+      personal_count: personalData.length,
       show_uts: true
     });
   } catch (error) {
