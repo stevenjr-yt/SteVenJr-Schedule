@@ -243,19 +243,35 @@ window.loadScheduleData = async function(category) {
         }
 
         data.forEach(item => {
-            const badgeColor = item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700';
+            const isConflict = item.isConflict === true;
+            const badgeColor = isConflict ? 'bg-red-100 text-red-700 font-bold border border-red-300' : (item.tipe === 'Praktek' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-50 text-indigo-700');
             const detail = category === 'personal' ? (item.keterangan || '-') : `${item.ruangan || '-'} • ${item.dosen || '-'}`;
             const title = item.matkul || item.nama_kegiatan || item.nama || "Kegiatan";
+            const rowBg = isConflict ? 'bg-red-50/60 hover:bg-red-50 border-red-200' : 'hover:bg-gray-50 border-gray-100';
+
+            const conflictBadge = isConflict ? `<span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded ml-2 font-bold uppercase tracking-wider"><i class="fas fa-exclamation-triangle mr-1"></i>BENTROK</span>` : '';
+            const solusiBanner = item.solusi ? `
+                <div class="mt-2 text-xs bg-amber-50 text-amber-900 p-2.5 rounded-xl border border-amber-200/80 flex items-start gap-2 shadow-sm">
+                    <i class="fas fa-lightbulb text-amber-600 mt-0.5"></i>
+                    <div>
+                        <strong class="font-semibold block text-[11px] text-amber-800 uppercase tracking-wide">Solusi Disarankan:</strong>
+                        <span class="text-xs text-amber-950">${item.solusi}</span>
+                    </div>
+                </div>` : '';
 
             tableBody.innerHTML += `
-            <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition text-sm schedule-row" data-waktu="${item.waktu}" data-hari="${item.hari || item.tanggal}">
-                <td class="p-4 align-top w-24">
+            <tr class="${rowBg} border-b last:border-0 transition text-sm schedule-row" data-waktu="${item.waktu}" data-hari="${item.hari || item.tanggal}">
+                <td class="p-4 align-top w-28">
                     <div class="font-bold text-gray-800 text-xs">${item.hari || item.tanggal}</div>
                     <div class="text-[10px] text-gray-500 mt-1 bg-gray-100 px-2 py-0.5 rounded w-fit">${item.waktu}</div>
                 </td>
                 <td class="p-4 align-top">
-                    <div class="font-bold text-gray-800 text-sm">${title}</div>
+                    <div class="flex items-center flex-wrap">
+                        <span class="font-bold text-gray-800 text-sm">${title}</span>
+                        ${conflictBadge}
+                    </div>
                     <div class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i> ${detail}</div>
+                    ${solusiBanner}
                 </td>
                 <td class="p-4 align-top text-right">
                     <span class="text-[10px] font-bold ${badgeColor} px-2 py-1 rounded-lg">${item.tipe || 'Info'}</span>
